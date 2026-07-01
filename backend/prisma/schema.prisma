@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Client {
+  id          String           @id @default(uuid())
+  name        String
+  createdAt   DateTime         @default(now())
+  users       User[]
+  connections MetaConnection[]
+  campaigns   Campaign[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(MEMBER)
+  client       Client   @relation(fields: [clientId], references: [id])
+  clientId     String
+  createdAt    DateTime @default(now())
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+model MetaConnection {
+  id             String           @id @default(uuid())
+  client         Client           @relation(fields: [clientId], references: [id])
+  clientId       String
+  connectionType ConnectionType
+  encryptedToken String
+  encryptionIv   String
+  encryptionTag  String
+  adAccountId    String?
+  businessId     String?
+  scopes         String[]
+  status         ConnectionStatus @default(ACTIVE)
+  expiresAt      DateTime?
+  lastSyncedAt   DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  assets         MetaAsset[]
+
+  @@index([clientId])
+}
+
+enum ConnectionType {
+  USER_TOKEN
+  SYSTEM_USER
+}
+
+enum ConnectionStatus {
+  ACTIVE
+  NEEDS_RECONNECT
+  REVOKED
+}
+
+model MetaAsset {
+  id             String         @id @default(uuid())
+  connection     MetaConnection @relation(fields: [connectionId], references: [id])
+  connectionId   String
+  assetType      AssetType
+  metaAssetId    String
+  name           String
+  encryptedToken String?
+  encryptionIv   String?
+  encryptionTag  String?
+
+  @@unique([connectionId, metaAssetId])
+}
+
+enum AssetType {
+  PAGE
+  INSTAGRAM_ACCOUNT
+  WHATSAPP_ACCOUNT
+}
+
+model Campaign {
+  id             String   @id @default(uuid())
+  client         Client   @relation(fields: [clientId], references: [id])
+  clientId       String
+  metaCampaignId String   @unique
+  name           String
+  objective      String
+  status         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([clientId])
+}
