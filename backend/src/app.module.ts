@@ -1,17 +1,32 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { BullModule } from '@nestjs/bullmq';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { CacheModule } from './cache/cache.module';
 import { AuthModule } from './auth/auth.module';
+import { MetaClientModule } from './meta-client/meta-client.module';
+import { SyncModule } from './sync/sync.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST ?? 'localhost',
+        port: 6379,
+      },
+    }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     CacheModule,
     AuthModule,
+    MetaClientModule,
+    SyncModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
