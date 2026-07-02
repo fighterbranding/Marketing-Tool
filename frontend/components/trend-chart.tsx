@@ -48,7 +48,9 @@ export function TrendChart({ data, metric, onMetricChange }: TrendChartProps) {
           {METRICS.map((m) => (
             <button
               key={m.key}
+              type="button"
               onClick={() => onMetricChange(m.key)}
+              aria-pressed={metric === m.key}
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                 metric === m.key
                   ? 'bg-indigo-100 text-indigo-700'
@@ -60,7 +62,7 @@ export function TrendChart({ data, metric, onMetricChange }: TrendChartProps) {
           ))}
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={280}>
+      <ResponsiveContainer width="100%" height={280} role="img" aria-label="Ad performance trend chart">
         <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis
