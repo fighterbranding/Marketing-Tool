@@ -8,6 +8,14 @@
 
 **Tech Stack:** NestJS 11, @nestjs/bullmq, bullmq, @nestjs/schedule, Prisma 7 ($queryRaw / $executeRaw), TimescaleDB (raw SQL migration), Jest + @nestjs/testing
 
+## Build Order
+
+**Execute tasks in this sequence: 1 → 2 → 4 → 3 → 5**
+
+Task 3 (SyncModule) imports `AnalyticsRepository` in its test file. Task 4 (AnalyticsModule) must be completed first so that import resolves.
+
+---
+
 ## Global Constraints
 
 - Node 20, TypeScript strict mode
