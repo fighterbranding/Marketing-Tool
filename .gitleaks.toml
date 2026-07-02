@@ -1,0 +1,11 @@
+[allowlist]
+  description = "Global allowlist"
+  regexes = [
+    '''.*\.example''',
+    '''PLACEHOLDER''',
+    '''your[_-].*[_-]here''',
+  ]
+  paths = [
+    '''.gitleaks\.toml''',
+    '''\.env\.example''',
+  ]

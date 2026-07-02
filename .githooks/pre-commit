@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Patterns that indicate secrets in staged files
+SECRET_PATTERNS=(
+  'ghp_[A-Za-z0-9_]{36,}'
+  'github_pat_[A-Za-z0-9_]{80,}'
+  'ghs_[A-Za-z0-9]{36,}'
+  'AKIA[0-9A-Z]{16}'
+  'sk-[A-Za-z0-9]{32,}'
+  'xoxb-[0-9]{11}-[0-9]{11}-[A-Za-z0-9]{24}'
+  'Bearer [A-Za-z0-9\-_]{20,}'
+  'EAA[A-Za-z0-9]+'
+)
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+FOUND=0
+for pattern in "${SECRET_PATTERNS[@]}"; do
+  matches=$(git diff --cached -U0 | grep '^\+' | grep -E "$pattern" || true)
+  if [ -n "$matches" ]; then
+    echo ""
+    echo "🚨 SECRET DETECTED — commit blocked"
+    echo "Pattern: $pattern"
+    echo "$matches"
+    FOUND=1
+  fi
+done
+
+if [ "$FOUND" -eq 1 ]; then
+  echo ""
+  echo "Remove the secret and try again."
+  echo "If this is a false positive, run:  git commit --no-verify"
+  exit 1
+fi
