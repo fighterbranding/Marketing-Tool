@@ -38,14 +38,37 @@ function isInsideRepo(filePath: string, repoRoot: string): boolean {
   return resolved === repoRoot || resolved.startsWith(repoRoot + path.sep);
 }
 
+/**
+ * Conservative allowlist of characters the SAFE_BASH commands legitimately need,
+ * plus the separators we explicitly split on below (`;`, `|`, newline, carriage
+ * return, and the paired `&&` chain operator).
+ *
+ * A bare `&` is deliberately NOT in this set. `&&` pairs are stripped before this
+ * check runs, so a lone `&` (bash's async/background operator) always fails
+ * closed — smuggling a risky command behind a safe one via `&` can't be caught
+ * by per-segment matching alone, since backgrounding detaches execution from the
+ * part of the command line the segment matcher can see.
+ *
+ * This is the fail-closed half of the fix: any character outside this set (a
+ * forgotten operator, a unicode lookalike, a stray `\0`, ...) is rejected here
+ * instead of silently falling through to segment-by-segment matching.
+ */
+const ALLOWED_BASH_CHARS = /^[A-Za-z0-9\s\-_./=:,'"@+~^%[\]{}?*#!;|]*$/;
+
 function evaluateBash(command: string): PolicyDecision {
   for (const { pattern, label } of RISKY_BASH) {
     if (pattern.test(command)) {
       return { action: 'ask', reason: `wants to ${label}:\n\`${command}\`` };
     }
   }
+  if (!ALLOWED_BASH_CHARS.test(command.replace(/&&/g, ''))) {
+    return {
+      action: 'ask',
+      reason: `wants to run a command with an unrecognized operator or character:\n\`${command}\``,
+    };
+  }
   const segments = command
-    .split(/&&|\|\||;|\||\n/)
+    .split(/&&|\|\||;|\||\n|\r|&/)
     .map((segment) => segment.trim())
     .filter((segment) => segment.length > 0);
   const allSafe = segments.length > 0 && segments.every((segment) => SAFE_BASH.some((re) => re.test(segment)));

