@@ -4,7 +4,7 @@ export type PolicyDecision = { action: 'allow' } | { action: 'ask'; reason: stri
 
 /** Tools that never change anything: always allowed, silently. */
 const READ_ONLY_TOOLS = new Set([
-  'Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch', 'TodoWrite', 'Task',
+  'Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch', 'TodoWrite',
   'NotebookRead', 'BashOutput', 'TaskList', 'TaskGet',
 ]);
 
@@ -99,6 +99,13 @@ export function evaluateToolUse(
 
   if (toolName === 'ExitPlanMode') {
     return { action: 'ask', reason: `proposes this plan:\n\n${String(input.plan ?? '(no plan text)')}` };
+  }
+
+  if (toolName === 'Task') {
+    const description = String(input.description ?? '').trim();
+    const prompt = String(input.prompt ?? '').trim();
+    const what = description || prompt || '(no description given)';
+    return { action: 'ask', reason: `wants to start a helper sub-agent to: ${what}` };
   }
 
   return { action: 'ask', reason: `wants to use tool "${toolName}" (not in the allowlist)` };

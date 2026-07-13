@@ -59,6 +59,21 @@ describe('evaluateToolUse', () => {
     expect(evaluateToolUse('SomeNewTool', {}, REPO).action).toBe('ask');
   });
 
+  it('asks before spawning a sub-agent (Task), with a human-readable reason', () => {
+    const result = evaluateToolUse(
+      'Task',
+      { description: 'refactor the auth module', prompt: 'Refactor the auth module to use the new session store.' },
+      REPO,
+    );
+    expect(result.action).toBe('ask');
+    expect(result.action === 'ask' && result.reason.length).toBeGreaterThan(0);
+    expect(result.action === 'ask' && result.reason).toContain('refactor the auth module');
+  });
+
+  it('still allows file writes inside the repo (Task gating must not affect this)', () => {
+    expect(evaluateToolUse('Write', { file_path: `${REPO}/frontend/x.ts` }, REPO)).toEqual({ action: 'allow' });
+  });
+
   it('asks for bash redirection that writes outside the repo', () => {
     expect(evaluateToolUse('Bash', { command: 'echo pwned > /Users/andrey/.zshrc' }, REPO).action).toBe('ask');
     expect(evaluateToolUse('Bash', { command: 'cat file >> /etc/hosts' }, REPO).action).toBe('ask');
