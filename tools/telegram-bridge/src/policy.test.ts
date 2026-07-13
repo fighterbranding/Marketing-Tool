@@ -124,4 +124,24 @@ describe('evaluateToolUse', () => {
   it('still allows the safe chained case with && after the separator fix', () => {
     expect(evaluateToolUse('Bash', { command: 'git status && ls' }, REPO)).toEqual({ action: 'allow' });
   });
+
+  it('asks for writes to .claude/settings.json', () => {
+    expect(evaluateToolUse('Write', { file_path: `${REPO}/.claude/settings.json` }, REPO).action).toBe('ask');
+  });
+
+  it('asks for writes to .claude/settings.local.json', () => {
+    expect(evaluateToolUse('Edit', { file_path: `${REPO}/.claude/settings.local.json` }, REPO).action).toBe('ask');
+  });
+
+  it('asks for writes to a settings.<something>.json variant under .claude/', () => {
+    expect(evaluateToolUse('Write', { file_path: `${REPO}/.claude/settings.foo.json` }, REPO).action).toBe('ask');
+  });
+
+  it('still allows ordinary file writes inside the repo (not under .claude/)', () => {
+    expect(evaluateToolUse('Write', { file_path: `${REPO}/frontend/x.ts` }, REPO)).toEqual({ action: 'allow' });
+  });
+
+  it('still allows a settings.json file that is NOT under .claude/', () => {
+    expect(evaluateToolUse('Write', { file_path: `${REPO}/frontend/settings.json` }, REPO)).toEqual({ action: 'allow' });
+  });
 });

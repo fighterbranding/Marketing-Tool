@@ -39,6 +39,22 @@ function isInsideRepo(filePath: string, repoRoot: string): boolean {
 }
 
 /**
+ * True when the path is a Claude settings file the SDK auto-loads
+ * (`.claude/settings.json`, `.claude/settings.local.json`, `.claude/settings.*.json`).
+ * Writing these can silently grant new `permissions.allow` rules that bypass this
+ * policy on the next turn, so they're gated for approval even though they're
+ * otherwise a plain in-repo write.
+ */
+function isClaudeSettingsFile(filePath: string, repoRoot: string): boolean {
+  const resolved = path.resolve(repoRoot, filePath);
+  const relative = path.relative(repoRoot, resolved);
+  const segments = relative.split(path.sep);
+  const inClaudeDir = segments.slice(0, -1).includes('.claude');
+  if (!inClaudeDir) return false;
+  return /^settings(\..*)?\.json$/.test(path.basename(resolved));
+}
+
+/**
  * Conservative allowlist of characters the SAFE_BASH commands legitimately need,
  * plus the separators we explicitly split on below (`;`, `|`, newline, carriage
  * return, and the paired `&&` chain operator).
@@ -90,6 +106,9 @@ export function evaluateToolUse(
     }
     if (/\.env(\.|$)/.test(path.basename(filePath)) && !filePath.endsWith('.env.example')) {
       return { action: 'ask', reason: `wants to write an env file:\n\`${filePath}\`` };
+    }
+    if (isClaudeSettingsFile(filePath, repoRoot)) {
+      return { action: 'ask', reason: `wants to change Claude's own permission settings: ${filePath}` };
     }
     if (isInsideRepo(filePath, repoRoot)) return { action: 'allow' };
     return { action: 'ask', reason: `wants to write OUTSIDE the repo:\n\`${filePath}\`` };
