@@ -13,6 +13,7 @@ const FILE_WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit'])
 
 /** Any match anywhere in a Bash command → ask. Checked before the safe list. */
 const RISKY_BASH: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /[<>`]|\$\(/, label: 'run a command with redirection or substitution' },
   { pattern: /\bgit\s+push\b/, label: 'push to the remote' },
   { pattern: /\bgit\s+commit\b/, label: 'create a git commit' },
   { pattern: /\bgit\s+(reset|clean|restore|checkout)\b/, label: 'discard or rewrite changes' },
@@ -44,7 +45,7 @@ function evaluateBash(command: string): PolicyDecision {
     }
   }
   const segments = command
-    .split(/&&|\|\||;|\|/)
+    .split(/&&|\|\||;|\||\n/)
     .map((segment) => segment.trim())
     .filter((segment) => segment.length > 0);
   const allSafe = segments.length > 0 && segments.every((segment) => SAFE_BASH.some((re) => re.test(segment)));
@@ -61,6 +62,9 @@ export function evaluateToolUse(
 
   if (FILE_WRITE_TOOLS.has(toolName)) {
     const filePath = String(input.file_path ?? input.notebook_path ?? '');
+    if (filePath.trim() === '') {
+      return { action: 'ask', reason: 'wants to write a file but no path was given' };
+    }
     if (/\.env(\.|$)/.test(path.basename(filePath)) && !filePath.endsWith('.env.example')) {
       return { action: 'ask', reason: `wants to write an env file:\n\`${filePath}\`` };
     }

