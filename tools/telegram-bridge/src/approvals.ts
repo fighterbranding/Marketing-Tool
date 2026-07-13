@@ -6,6 +6,12 @@ export class ApprovalBroker {
   constructor(private timeoutMs: number) {}
 
   request(id: string): Promise<boolean> {
+    // Fail closed: never clobber a genuinely in-flight request. A duplicate
+    // id means something is wrong upstream, so deny it without touching the
+    // original's timer/resolver.
+    if (this.pending.has(id)) {
+      return Promise.resolve(false);
+    }
     return new Promise((resolvePromise) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);

@@ -33,4 +33,16 @@ describe('ApprovalBroker', () => {
     broker.resolve('a', true);
     expect(broker.resolve('a', true)).toBe(false);
   });
+
+  it('denies a duplicate request for an already-pending id without clobbering the original', async () => {
+    const broker = new ApprovalBroker(1000);
+    const first = broker.request('a');
+    const second = broker.request('a');
+
+    vi.advanceTimersByTime(0);
+    await expect(second).resolves.toBe(false);
+
+    expect(broker.resolve('a', true)).toBe(true);
+    await expect(first).resolves.toBe(true);
+  });
 });
