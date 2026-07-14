@@ -1,4 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import axios, { isAxiosError } from 'axios';
+
+const GRAPH_API_BASE = 'https://graph.facebook.com/v21.0';
 
 export interface InsightRow {
   campaignId: string;
@@ -12,9 +15,55 @@ export interface InsightRow {
   cpc_cents: number;
 }
 
+export interface CreateCampaignInput {
+  name: string;
+  objective: string;
+  specialAdCategories: string[];
+}
+
+export interface MetaCampaign {
+  id: string;
+}
+
+export interface TargetingInterest {
+  id: string;
+  name: string;
+}
+
+export interface TargetingSpec {
+  countries: string[];
+  ageMin: number;
+  ageMax: number;
+  platforms: string[];
+  interests: TargetingInterest[];
+}
+
+export interface CreateAdSetInput {
+  name: string;
+  metaCampaignId: string;
+  dailyBudgetCents: number;
+  optimizationGoal: string;
+  targeting: TargetingSpec;
+}
+
+export interface MetaAdSet {
+  id: string;
+}
+
+export interface TargetingSuggestion {
+  id: string;
+  name: string;
+  audienceSize?: number;
+}
+
+export type ObjectStatus = 'ACTIVE' | 'PAUSED';
+
 @Injectable()
 export class MetaClientService {
-  async getInsights(_adAccountId: string, _token: string): Promise<InsightRow[]> {
+  async getInsights(
+    _adAccountId: string,
+    _token: string,
+  ): Promise<InsightRow[]> {
     return [
       {
         campaignId: 'mock-001',
@@ -28,5 +77,121 @@ export class MetaClientService {
         cpc_cents: 100,
       },
     ];
+  }
+
+  async createCampaign(
+    adAccountId: string,
+    token: string,
+    data: CreateCampaignInput,
+  ): Promise<MetaCampaign> {
+    try {
+      const res = await axios.post<{ id: string }>(
+        `${GRAPH_API_BASE}/act_${adAccountId}/campaigns`,
+        {
+          name: data.name,
+          objective: data.objective,
+          // Always created paused — the client must explicitly launch. See docs/03-meta-api/marketing-api.md.
+          status: 'PAUSED',
+          special_ad_categories: data.specialAdCategories,
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      return { id: res.data.id };
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
+  }
+
+  async createAdSet(
+    adAccountId: string,
+    token: string,
+    data: CreateAdSetInput,
+  ): Promise<MetaAdSet> {
+    try {
+      const res = await axios.post<{ id: string }>(
+        `${GRAPH_API_BASE}/act_${adAccountId}/adsets`,
+        {
+          name: data.name,
+          campaign_id: data.metaCampaignId,
+          daily_budget: data.dailyBudgetCents,
+          billing_event: 'IMPRESSIONS',
+          optimization_goal: data.optimizationGoal,
+          targeting: {
+            geo_locations: { countries: data.targeting.countries },
+            age_min: data.targeting.ageMin,
+            age_max: data.targeting.ageMax,
+            interests: data.targeting.interests.map((i) => ({
+              id: i.id,
+              name: i.name,
+            })),
+            publisher_platforms: data.targeting.platforms,
+          },
+          // Always created paused — the client must explicitly launch. See docs/03-meta-api/marketing-api.md.
+          status: 'PAUSED',
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      return { id: res.data.id };
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
+  }
+
+  async searchTargeting(
+    query: string,
+    token: string,
+  ): Promise<TargetingSuggestion[]> {
+    try {
+      const res = await axios.get<{
+        data: {
+          id: string;
+          name: string;
+          audience_size_upper_bound?: number;
+        }[];
+      }>(`${GRAPH_API_BASE}/search`, {
+        params: { type: 'adinterest', q: query, limit: 10 },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return res.data.data.map((row) => ({
+        id: row.id,
+        name: row.name,
+        audienceSize: row.audience_size_upper_bound,
+      }));
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
+  }
+
+  // Campaigns, ad sets, and ads all share this same status-update pattern —
+  // the object id alone determines which level is being updated. See
+  // docs/03-meta-api/marketing-api.md section 4.
+  async updateObjectStatus(
+    metaObjectId: string,
+    token: string,
+    status: ObjectStatus,
+  ): Promise<void> {
+    try {
+      await axios.post(
+        `${GRAPH_API_BASE}/${metaObjectId}`,
+        { status },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
+  }
+
+  private toMetaError(err: unknown): Error & { metaErrorCode?: number } {
+    if (isAxiosError(err)) {
+      const responseData = err.response?.data as
+        { error?: { message?: string; code?: number } } | undefined;
+      const metaError = responseData?.error;
+      const mapped: Error & { metaErrorCode?: number } = new Error(
+        metaError?.message ?? err.message,
+      );
+      mapped.metaErrorCode = metaError?.code;
+      return mapped;
+    }
+    return err instanceof Error ? err : new Error('Unknown Meta API error');
   }
 }

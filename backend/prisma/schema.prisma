@@ -93,6 +93,23 @@ model Campaign {
   status         String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  adSets         AdSet[]
 
   @@index([clientId])
+}
+
+model AdSet {
+  id               String   @id @default(uuid())
+  campaign         Campaign @relation(fields: [campaignId], references: [id])
+  campaignId       String
+  metaAdSetId      String   @unique
+  name             String
+  dailyBudgetCents Int
+  optimizationGoal String
+  targeting        Json
+  status           String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([campaignId])
 }

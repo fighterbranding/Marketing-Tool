@@ -22,3 +22,56 @@ export interface InsightsData {
   current: InsightsResponse;
   previous: InsightsResponse;
 }
+
+export type CampaignObjective =
+  | 'OUTCOME_TRAFFIC'
+  | 'OUTCOME_SALES'
+  | 'OUTCOME_LEADS'
+  | 'OUTCOME_AWARENESS';
+
+export type CampaignStatus = 'ACTIVE' | 'PAUSED';
+
+export interface Campaign {
+  id: string;
+  metaCampaignId: string;
+  name: string;
+  objective: CampaignObjective;
+  status: CampaignStatus;
+  createdAt: string;
+}
+
+export type OptimizationGoal =
+  | 'LINK_CLICKS'
+  | 'REACH'
+  | 'IMPRESSIONS'
+  | 'OFFSITE_CONVERSIONS';
+
+export interface TargetingInterest {
+  id: string;
+  name: string;
+}
+
+export interface TargetingSpec {
+  countries: string[];
+  ageMin: number;
+  ageMax: number;
+  platforms: string[];
+  interests: TargetingInterest[];
+}
+
+export interface AdSet {
+  id: string;
+  metaAdSetId: string;
+  name: string;
+  dailyBudgetCents: number;
+  optimizationGoal: OptimizationGoal;
+  targeting: TargetingSpec;
+  status: CampaignStatus;
+  createdAt: string;
+}
+
+export interface TargetingSuggestion {
+  id: string;
+  name: string;
+  audienceSize?: number;
+}

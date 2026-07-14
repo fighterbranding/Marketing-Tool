@@ -10,6 +10,8 @@ import { AuthModule } from './auth/auth.module';
 import { MetaClientModule } from './meta-client/meta-client.module';
 import { SyncModule } from './sync/sync.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { CampaignsModule } from './campaigns/campaigns.module';
+import { AdSetsModule } from './ad-sets/ad-sets.module';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { AnalyticsModule } from './analytics/analytics.module';
     MetaClientModule,
     SyncModule,
     AnalyticsModule,
+    CampaignsModule,
+    AdSetsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
