@@ -144,4 +144,58 @@ describe('evaluateToolUse', () => {
   it('still allows a settings.json file that is NOT under .claude/', () => {
     expect(evaluateToolUse('Write', { file_path: `${REPO}/frontend/settings.json` }, REPO)).toEqual({ action: 'allow' });
   });
+
+  it('asks for node used as a general-purpose interpreter (RCE bypass of RISKY_BASH)', () => {
+    expect(
+      evaluateToolUse('Bash', { command: `node -e "require('child_process').execSync('git push')"` }, REPO).action,
+    ).toBe('ask');
+  });
+
+  it('asks for bare node commands', () => {
+    expect(evaluateToolUse('Bash', { command: 'node script.js' }, REPO).action).toBe('ask');
+  });
+
+  it('asks for bare tsc commands (not via npx)', () => {
+    expect(evaluateToolUse('Bash', { command: 'tsc --noEmit' }, REPO).action).toBe('ask');
+  });
+
+  it('asks for find -delete', () => {
+    expect(evaluateToolUse('Bash', { command: 'find . -delete' }, REPO).action).toBe('ask');
+  });
+
+  it('asks for find -exec', () => {
+    // Also caught by the backslash char-gate, but must still ask either way.
+    expect(evaluateToolUse('Bash', { command: 'find . -exec rm {} \\;' }, REPO).action).toBe('ask');
+  });
+
+  it('asks for a .envrc write (direnv auto-executes on cd)', () => {
+    expect(evaluateToolUse('Write', { file_path: `${REPO}/.envrc` }, REPO).action).toBe('ask');
+  });
+
+  it('still allows npx tsc --noEmit for typechecking', () => {
+    expect(evaluateToolUse('Bash', { command: 'npx tsc --noEmit' }, REPO)).toEqual({ action: 'allow' });
+  });
+
+  it('still allows find without -delete/-exec', () => {
+    expect(evaluateToolUse('Bash', { command: "find . -name '*.ts'" }, REPO)).toEqual({ action: 'allow' });
+  });
+
+  it('still allows the full regression set', () => {
+    for (const command of [
+      'git status',
+      'git diff HEAD',
+      'git log --oneline -5',
+      'npm test',
+      'npm run build',
+      'npx tsc --noEmit',
+      'ls -la',
+      'cat package.json',
+      'grep foo',
+      "find . -name '*.ts'",
+      'git status && ls',
+    ]) {
+      expect(evaluateToolUse('Bash', { command }, REPO), command).toEqual({ action: 'allow' });
+    }
+    expect(evaluateToolUse('Write', { file_path: `${REPO}/frontend/x.ts` }, REPO)).toEqual({ action: 'allow' });
+  });
 });

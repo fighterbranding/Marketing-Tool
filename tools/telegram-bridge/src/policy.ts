@@ -23,6 +23,9 @@ const RISKY_BASH: Array<{ pattern: RegExp; label: string }> = [
   { pattern: /\b(npm|pnpm|yarn)\s+(install|i|add|uninstall|remove|rm)\b/, label: 'change dependencies' },
   { pattern: /\bcurl\b[^|;&]*\|\s*(ba|z)?sh\b/, label: 'pipe the internet into a shell' },
   { pattern: /\.env\b/, label: 'touch env/credential files' },
+  { pattern: /\bfind\b.*-delete\b/, label: 'delete or execute via find' },
+  { pattern: /\bfind\b.*-execdir\b/, label: 'delete or execute via find' },
+  { pattern: /\bfind\b.*-exec\b/, label: 'delete or execute via find' },
 ];
 
 /** A Bash command is auto-allowed only if EVERY chained segment matches one of these. */
@@ -30,7 +33,7 @@ const SAFE_BASH: RegExp[] = [
   /^git (status|diff|log|show|branch)\b/,
   /^(npm|pnpm|yarn) (test|run)\b/,
   /^npx (vitest|jest|tsc|eslint|prettier|next|playwright)\b/,
-  /^(ls|pwd|cat|head|tail|wc|grep|rg|find|echo|which|node|tsc)\b/,
+  /^(ls|pwd|cat|head|tail|wc|grep|rg|find|echo|which)\b/,
 ];
 
 function isInsideRepo(filePath: string, repoRoot: string): boolean {
@@ -104,7 +107,10 @@ export function evaluateToolUse(
     if (filePath.trim() === '') {
       return { action: 'ask', reason: 'wants to write a file but no path was given' };
     }
-    if (/\.env(\.|$)/.test(path.basename(filePath)) && !filePath.endsWith('.env.example')) {
+    if (
+      (/\.env(\.|$)/.test(path.basename(filePath)) && !filePath.endsWith('.env.example')) ||
+      path.basename(filePath) === '.envrc'
+    ) {
       return { action: 'ask', reason: `wants to write an env file:\n\`${filePath}\`` };
     }
     if (isClaudeSettingsFile(filePath, repoRoot)) {
