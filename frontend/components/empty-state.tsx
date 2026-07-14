@@ -8,7 +8,7 @@ export function EmptyState({ onRefresh }: EmptyStateProps) {
       <div className="text-4xl mb-4">📊</div>
       <h3 className="text-lg font-semibold text-gray-800 mb-2">Your data is syncing</h3>
       <p className="text-sm text-gray-500 mb-6 max-w-xs">
-        We're pulling your Meta ad data in the background. This usually takes a few minutes.
+        We&apos;re pulling your Meta ad data in the background. This usually takes a few minutes.
       </p>
       <button
         onClick={onRefresh}

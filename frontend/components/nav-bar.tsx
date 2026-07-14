@@ -1,6 +1,7 @@
 'use client';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 
 const PRESETS = [
   { label: 'Last 7 days', days: 7 },
@@ -29,6 +30,7 @@ function detectPreset(from: string | null, to: string | null): number {
 
 export function NavBar() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const currentDays = detectPreset(searchParams.get('from'), searchParams.get('to'));
 
@@ -40,6 +42,8 @@ export function NavBar() {
 
   function handleSignOut() {
     localStorage.removeItem('token');
+    // Drop all cached data so the next account can't see this one's insights
+    queryClient.clear();
     router.push('/login');
   }
 
