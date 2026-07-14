@@ -47,6 +47,22 @@ export function createBot(config: { token: string; userId: number; repoRoot: str
     if (next !== undefined) void runTurn(next);
   };
 
+  const helpText = [
+    '👋 This bridge runs Claude Code in your Marketing Tool repo.',
+    '',
+    'Just send a task in plain English and I will work on it.',
+    'Risky actions (commits, pushes, deletes, installs, sub-agents) show ✅/❌ buttons first.',
+    '',
+    'Commands:',
+    '/status — am I busy or idle?',
+    '/new — start a fresh session',
+    '/stop — interrupt the current task',
+  ].join('\n');
+
+  bot.command(['start', 'help'], async (ctx) => {
+    await ctx.reply(helpText);
+  });
+
   bot.command('new', async (ctx) => {
     session.reset();
     await ctx.reply('🆕 Fresh session. Send me a task.');
