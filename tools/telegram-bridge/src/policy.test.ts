@@ -180,6 +180,22 @@ describe('evaluateToolUse', () => {
     expect(evaluateToolUse('Bash', { command: "find . -name '*.ts'" }, REPO)).toEqual({ action: 'allow' });
   });
 
+  it('asks for npx commands that only look like allowlisted tools (loose \\b bypass)', () => {
+    for (const command of ['npx vitest-evil', 'npx tsc.evil', 'npx eslintx', 'npx next-foo']) {
+      expect(evaluateToolUse('Bash', { command }, REPO).action, command).toBe('ask');
+    }
+  });
+
+  it('still allows genuine npx allowlisted tool invocations', () => {
+    for (const command of ['npx vitest', 'npx vitest run', 'npx tsc --noEmit', 'npx eslint .', 'npx prettier --check .', 'npx next build', 'npx playwright test', 'npx jest']) {
+      expect(evaluateToolUse('Bash', { command }, REPO), command).toEqual({ action: 'allow' });
+    }
+  });
+
+  it('asks for reading .envrc (direnv secrets can leak to Telegram)', () => {
+    expect(evaluateToolUse('Bash', { command: 'cat .envrc' }, REPO).action).toBe('ask');
+  });
+
   it('still allows the full regression set', () => {
     for (const command of [
       'git status',

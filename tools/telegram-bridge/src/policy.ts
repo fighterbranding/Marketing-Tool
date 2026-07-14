@@ -22,7 +22,7 @@ const RISKY_BASH: Array<{ pattern: RegExp; label: string }> = [
   { pattern: /\bsudo\b/, label: 'run as root' },
   { pattern: /\b(npm|pnpm|yarn)\s+(install|i|add|uninstall|remove|rm)\b/, label: 'change dependencies' },
   { pattern: /\bcurl\b[^|;&]*\|\s*(ba|z)?sh\b/, label: 'pipe the internet into a shell' },
-  { pattern: /\.env\b/, label: 'touch env/credential files' },
+  { pattern: /\.env(rc)?\b/, label: 'touch env/credential files' },
   { pattern: /\bfind\b.*-delete\b/, label: 'delete or execute via find' },
   { pattern: /\bfind\b.*-execdir\b/, label: 'delete or execute via find' },
   { pattern: /\bfind\b.*-exec\b/, label: 'delete or execute via find' },
@@ -32,7 +32,7 @@ const RISKY_BASH: Array<{ pattern: RegExp; label: string }> = [
 const SAFE_BASH: RegExp[] = [
   /^git (status|diff|log|show|branch)\b/,
   /^(npm|pnpm|yarn) (test|run)\b/,
-  /^npx (vitest|jest|tsc|eslint|prettier|next|playwright)\b/,
+  /^npx (vitest|jest|tsc|eslint|prettier|next|playwright)(\s|$)/,
   /^(ls|pwd|cat|head|tail|wc|grep|rg|find|echo|which)\b/,
 ];
 
