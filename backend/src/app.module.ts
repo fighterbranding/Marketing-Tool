@@ -13,6 +13,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
 import { AdSetsModule } from './ad-sets/ad-sets.module';
 import { AdsModule } from './ads/ads.module';
+import { PagesModule } from './pages/pages.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { AdsModule } from './ads/ads.module';
     CampaignsModule,
     AdSetsModule,
     AdsModule,
+    PagesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

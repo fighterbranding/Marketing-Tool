@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 const NAV_LINKS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/campaigns', label: 'Campaigns' },
+  { href: '/pages', label: 'Pages' },
 ];
 
 const PRESETS = [

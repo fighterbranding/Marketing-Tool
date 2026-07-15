@@ -102,6 +102,19 @@ export interface UpdateAdInput {
   name: string;
 }
 
+export interface MetaInstagramAccount {
+  id: string;
+  username: string;
+  profilePictureUrl?: string;
+}
+
+export interface MetaPage {
+  id: string;
+  name: string;
+  accessToken: string;
+  instagramAccount?: MetaInstagramAccount;
+}
+
 @Injectable()
 export class MetaClientService {
   async getInsights(
@@ -370,6 +383,48 @@ export class MetaClientService {
         { name: data.name },
         { headers: { Authorization: `Bearer ${token}` } },
       );
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
+  }
+
+  // Instagram is only reachable through a linked Page, not independently —
+  // requesting instagram_business_account as a sub-object here (rather than
+  // a second call per page) gets the linked account's details in one round
+  // trip. See docs/03-meta-api/pages-api.md.
+  async getPages(token: string): Promise<MetaPage[]> {
+    try {
+      const res = await axios.get<{
+        data: {
+          id: string;
+          name: string;
+          access_token: string;
+          instagram_business_account?: {
+            id: string;
+            username: string;
+            profile_picture_url?: string;
+          };
+        }[];
+      }>(`${GRAPH_API_BASE}/me/accounts`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          fields:
+            'id,name,access_token,instagram_business_account{id,username,profile_picture_url}',
+        },
+      });
+      return res.data.data.map((page) => ({
+        id: page.id,
+        name: page.name,
+        accessToken: page.access_token,
+        instagramAccount: page.instagram_business_account
+          ? {
+              id: page.instagram_business_account.id,
+              username: page.instagram_business_account.username,
+              profilePictureUrl:
+                page.instagram_business_account.profile_picture_url,
+            }
+          : undefined,
+      }));
     } catch (err) {
       throw this.toMetaError(err);
     }

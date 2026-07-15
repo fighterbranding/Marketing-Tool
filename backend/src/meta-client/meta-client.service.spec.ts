@@ -327,4 +327,61 @@ describe('MetaClientService', () => {
       );
     });
   });
+
+  describe('getPages', () => {
+    it('maps pages and their linked Instagram account from a single call', async () => {
+      mockedGet.mockResolvedValue({
+        data: {
+          data: [
+            {
+              id: 'page_1',
+              name: 'My Page',
+              access_token: 'page-token-1',
+              instagram_business_account: {
+                id: 'ig_1',
+                username: 'my_ig',
+                profile_picture_url: 'https://example.com/pic.jpg',
+              },
+            },
+            {
+              id: 'page_2',
+              name: 'No IG Page',
+              access_token: 'page-token-2',
+            },
+          ],
+        },
+      });
+
+      const result = await service.getPages('token-1');
+
+      expect(result).toEqual([
+        {
+          id: 'page_1',
+          name: 'My Page',
+          accessToken: 'page-token-1',
+          instagramAccount: {
+            id: 'ig_1',
+            username: 'my_ig',
+            profilePictureUrl: 'https://example.com/pic.jpg',
+          },
+        },
+        {
+          id: 'page_2',
+          name: 'No IG Page',
+          accessToken: 'page-token-2',
+          instagramAccount: undefined,
+        },
+      ]);
+      expect(mockedGet).toHaveBeenCalledWith(
+        'https://graph.facebook.com/v21.0/me/accounts',
+        {
+          headers: { Authorization: 'Bearer token-1' },
+          params: {
+            fields:
+              'id,name,access_token,instagram_business_account{id,username,profile_picture_url}',
+          },
+        },
+      );
+    });
+  });
 });

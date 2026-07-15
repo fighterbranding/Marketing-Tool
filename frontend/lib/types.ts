@@ -90,3 +90,15 @@ export interface Ad {
   status: CampaignStatus;
   createdAt: string;
 }
+
+export interface InstagramAccount {
+  id: string;
+  username: string;
+  profilePictureUrl?: string;
+}
+
+export interface Page {
+  id: string;
+  name: string;
+  instagramAccount?: InstagramAccount;
+}
