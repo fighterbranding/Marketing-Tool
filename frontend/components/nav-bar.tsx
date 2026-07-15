@@ -7,6 +7,7 @@ const NAV_LINKS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/campaigns', label: 'Campaigns' },
   { href: '/pages', label: 'Pages' },
+  { href: '/ad-account', label: 'Ad account' },
 ];
 
 const PRESETS = [

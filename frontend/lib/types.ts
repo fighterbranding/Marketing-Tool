@@ -102,3 +102,23 @@ export interface Page {
   name: string;
   instagramAccount?: InstagramAccount;
 }
+
+export interface Business {
+  id: string;
+  name: string;
+}
+
+export type AdAccountStatus = 'ACTIVE' | 'DISABLED' | 'UNSETTLED' | 'PENDING_REVIEW' | 'OTHER';
+
+export interface AdAccount {
+  id: string;
+  name: string;
+  status: AdAccountStatus;
+  currency: string;
+  timezoneName: string;
+}
+
+export interface CurrentAdAccountSelection {
+  businessId: string | null;
+  adAccountId: string | null;
+}

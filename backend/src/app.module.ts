@@ -14,6 +14,7 @@ import { CampaignsModule } from './campaigns/campaigns.module';
 import { AdSetsModule } from './ad-sets/ad-sets.module';
 import { AdsModule } from './ads/ads.module';
 import { PagesModule } from './pages/pages.module';
+import { AdAccountsModule } from './ad-accounts/ad-accounts.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { PagesModule } from './pages/pages.module';
     AdSetsModule,
     AdsModule,
     PagesModule,
+    AdAccountsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

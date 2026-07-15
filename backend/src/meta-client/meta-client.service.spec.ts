@@ -384,4 +384,110 @@ describe('MetaClientService', () => {
       );
     });
   });
+
+  describe('getBusinesses', () => {
+    it('maps businesses from /me/businesses', async () => {
+      mockedGet.mockResolvedValue({
+        data: { data: [{ id: 'biz_1', name: 'Acme Agency' }] },
+      });
+
+      const result = await service.getBusinesses('token-1');
+
+      expect(result).toEqual([{ id: 'biz_1', name: 'Acme Agency' }]);
+      expect(mockedGet).toHaveBeenCalledWith(
+        'https://graph.facebook.com/v21.0/me/businesses',
+        { headers: { Authorization: 'Bearer token-1' } },
+      );
+    });
+  });
+
+  describe('getAdAccounts', () => {
+    it('maps ad accounts, strips the act_ prefix, and maps account_status', async () => {
+      mockedGet.mockResolvedValue({
+        data: {
+          data: [
+            {
+              id: 'act_123',
+              name: 'Main account',
+              account_status: 1,
+              currency: 'USD',
+              timezone_name: 'America/New_York',
+            },
+            {
+              id: 'act_456',
+              name: 'Disabled account',
+              account_status: 2,
+              currency: 'USD',
+              timezone_name: 'America/New_York',
+            },
+            {
+              id: 'act_789',
+              name: 'Unknown status',
+              account_status: 999,
+              currency: 'USD',
+              timezone_name: 'America/New_York',
+            },
+          ],
+        },
+      });
+
+      const result = await service.getAdAccounts('biz_1', 'token-1');
+
+      expect(result).toEqual([
+        {
+          id: '123',
+          name: 'Main account',
+          status: 'ACTIVE',
+          currency: 'USD',
+          timezoneName: 'America/New_York',
+        },
+        {
+          id: '456',
+          name: 'Disabled account',
+          status: 'DISABLED',
+          currency: 'USD',
+          timezoneName: 'America/New_York',
+        },
+        {
+          id: '789',
+          name: 'Unknown status',
+          status: 'OTHER',
+          currency: 'USD',
+          timezoneName: 'America/New_York',
+        },
+      ]);
+      expect(mockedGet).toHaveBeenCalledWith(
+        'https://graph.facebook.com/v21.0/biz_1/owned_ad_accounts',
+        {
+          headers: { Authorization: 'Bearer token-1' },
+          params: { fields: 'id,name,account_status,currency,timezone_name' },
+        },
+      );
+    });
+  });
+
+  describe('verifyAdAccountAccess', () => {
+    it('returns true when the account is reachable with this token', async () => {
+      mockedGet.mockResolvedValue({ data: { id: 'act_123' } });
+
+      const result = await service.verifyAdAccountAccess('123', 'token-1');
+
+      expect(result).toBe(true);
+      expect(mockedGet).toHaveBeenCalledWith(
+        'https://graph.facebook.com/v21.0/act_123',
+        {
+          headers: { Authorization: 'Bearer token-1' },
+          params: { fields: 'id' },
+        },
+      );
+    });
+
+    it('returns false without throwing when the call fails', async () => {
+      mockedGet.mockRejectedValue(new Error('403 forbidden'));
+
+      const result = await service.verifyAdAccountAccess('123', 'token-1');
+
+      expect(result).toBe(false);
+    });
+  });
 });

@@ -115,6 +115,32 @@ export interface MetaPage {
   instagramAccount?: MetaInstagramAccount;
 }
 
+export interface MetaBusiness {
+  id: string;
+  name: string;
+}
+
+export type AdAccountStatus =
+  'ACTIVE' | 'DISABLED' | 'UNSETTLED' | 'PENDING_REVIEW' | 'OTHER';
+
+export interface MetaAdAccount {
+  id: string;
+  name: string;
+  status: AdAccountStatus;
+  currency: string;
+  timezoneName: string;
+}
+
+// Meta's numeric account_status codes — see
+// docs/03-meta-api/business-manager-api.md. Only 1 (active) is usable;
+// anything else should block campaign creation with a clear reason.
+const AD_ACCOUNT_STATUS_MAP: Record<number, AdAccountStatus> = {
+  1: 'ACTIVE',
+  2: 'DISABLED',
+  3: 'UNSETTLED',
+  7: 'PENDING_REVIEW',
+};
+
 @Injectable()
 export class MetaClientService {
   async getInsights(
@@ -427,6 +453,69 @@ export class MetaClientService {
       }));
     } catch (err) {
       throw this.toMetaError(err);
+    }
+  }
+
+  async getBusinesses(token: string): Promise<MetaBusiness[]> {
+    try {
+      const res = await axios.get<{ data: { id: string; name: string }[] }>(
+        `${GRAPH_API_BASE}/me/businesses`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      return res.data.data.map((b) => ({ id: b.id, name: b.name }));
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
+  }
+
+  async getAdAccounts(
+    businessId: string,
+    token: string,
+  ): Promise<MetaAdAccount[]> {
+    try {
+      const res = await axios.get<{
+        data: {
+          id: string;
+          name: string;
+          account_status: number;
+          currency: string;
+          timezone_name: string;
+        }[];
+      }>(`${GRAPH_API_BASE}/${businessId}/owned_ad_accounts`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { fields: 'id,name,account_status,currency,timezone_name' },
+      });
+      return res.data.data.map((a) => ({
+        // Meta's ad account ids come back prefixed with "act_" from this
+        // endpoint; strip it so it matches the bare id used everywhere else
+        // (e.g. act_${adAccountId} when building campaign/adset URLs).
+        id: a.id.replace(/^act_/, ''),
+        name: a.name,
+        status: AD_ACCOUNT_STATUS_MAP[a.account_status] ?? 'OTHER',
+        currency: a.currency,
+        timezoneName: a.timezone_name,
+      }));
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
+  }
+
+  // Confirms the token actually has access to this specific ad account
+  // before we save it as the client's selection — avoids a wall of opaque
+  // permission errors on every subsequent campaign/insights call. See
+  // docs/03-meta-api/business-manager-api.md section 3.
+  async verifyAdAccountAccess(
+    adAccountId: string,
+    token: string,
+  ): Promise<boolean> {
+    try {
+      await axios.get(`${GRAPH_API_BASE}/act_${adAccountId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { fields: 'id' },
+      });
+      return true;
+    } catch {
+      return false;
     }
   }
 
