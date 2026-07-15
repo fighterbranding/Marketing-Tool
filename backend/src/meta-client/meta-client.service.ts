@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import axios, { isAxiosError } from 'axios';
+import FormData from 'form-data';
 
 const GRAPH_API_BASE = 'https://graph.facebook.com/v21.0';
 
@@ -57,6 +58,34 @@ export interface TargetingSuggestion {
 }
 
 export type ObjectStatus = 'ACTIVE' | 'PAUSED';
+
+export interface UploadedImage {
+  hash: string;
+}
+
+export interface CreateAdCreativeInput {
+  name: string;
+  pageId: string;
+  imageHash: string;
+  destinationUrl: string;
+  headline: string;
+  bodyText: string;
+  ctaType: string;
+}
+
+export interface MetaCreative {
+  id: string;
+}
+
+export interface CreateAdInput {
+  name: string;
+  metaAdSetId: string;
+  creativeId: string;
+}
+
+export interface MetaAd {
+  id: string;
+}
 
 @Injectable()
 export class MetaClientService {
@@ -157,6 +186,78 @@ export class MetaClientService {
         name: row.name,
         audienceSize: row.audience_size_upper_bound,
       }));
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
+  }
+
+  async uploadImage(
+    adAccountId: string,
+    token: string,
+    file: { buffer: Buffer; originalname: string },
+  ): Promise<UploadedImage> {
+    try {
+      const form = new FormData();
+      form.append(file.originalname, file.buffer, file.originalname);
+      const res = await axios.post<{
+        images: Record<string, { hash: string }>;
+      }>(`${GRAPH_API_BASE}/act_${adAccountId}/adimages`, form, {
+        headers: { ...form.getHeaders(), Authorization: `Bearer ${token}` },
+      });
+      const uploaded = Object.values(res.data.images)[0];
+      return { hash: uploaded.hash };
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
+  }
+
+  async createAdCreative(
+    adAccountId: string,
+    token: string,
+    data: CreateAdCreativeInput,
+  ): Promise<MetaCreative> {
+    try {
+      const res = await axios.post<{ id: string }>(
+        `${GRAPH_API_BASE}/act_${adAccountId}/adcreatives`,
+        {
+          name: data.name,
+          object_story_spec: {
+            page_id: data.pageId,
+            link_data: {
+              image_hash: data.imageHash,
+              link: data.destinationUrl,
+              name: data.headline,
+              message: data.bodyText,
+              call_to_action: { type: data.ctaType },
+            },
+          },
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      return { id: res.data.id };
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
+  }
+
+  async createAd(
+    adAccountId: string,
+    token: string,
+    data: CreateAdInput,
+  ): Promise<MetaAd> {
+    try {
+      const res = await axios.post<{ id: string }>(
+        `${GRAPH_API_BASE}/act_${adAccountId}/ads`,
+        {
+          name: data.name,
+          adset_id: data.metaAdSetId,
+          creative: { creative_id: data.creativeId },
+          // Always created paused — the client must explicitly launch. See docs/03-meta-api/marketing-api.md.
+          status: 'PAUSED',
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      return { id: res.data.id };
     } catch (err) {
       throw this.toMetaError(err);
     }

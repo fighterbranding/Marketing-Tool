@@ -111,6 +111,25 @@ model AdSet {
   status           String
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  ads              Ad[]
 
   @@index([campaignId])
+}
+
+model Ad {
+  id             String   @id @default(uuid())
+  adSet          AdSet    @relation(fields: [adSetId], references: [id])
+  adSetId        String
+  metaAdId       String   @unique
+  name           String
+  headline       String
+  bodyText       String
+  ctaType        String
+  destinationUrl String
+  imageHash      String
+  status         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([adSetId])
 }

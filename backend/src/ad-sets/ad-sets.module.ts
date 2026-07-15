@@ -11,5 +11,6 @@ import { CampaignsModule } from '../campaigns/campaigns.module';
   imports: [MetaClientModule, AuthModule, CampaignsModule],
   providers: [AdSetsRepository, AdSetsService],
   controllers: [AdSetsController, TargetingController],
+  exports: [AdSetsRepository],
 })
 export class AdSetsModule {}

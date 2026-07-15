@@ -75,3 +75,18 @@ export interface TargetingSuggestion {
   name: string;
   audienceSize?: number;
 }
+
+export type CtaType = 'LEARN_MORE' | 'SHOP_NOW' | 'SIGN_UP' | 'DOWNLOAD' | 'CONTACT_US';
+
+export interface Ad {
+  id: string;
+  metaAdId: string;
+  name: string;
+  headline: string;
+  bodyText: string;
+  ctaType: CtaType;
+  destinationUrl: string;
+  imageHash: string;
+  status: CampaignStatus;
+  createdAt: string;
+}

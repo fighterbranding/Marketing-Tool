@@ -12,6 +12,7 @@ import { SyncModule } from './sync/sync.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
 import { AdSetsModule } from './ad-sets/ad-sets.module';
+import { AdsModule } from './ads/ads.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AdSetsModule } from './ad-sets/ad-sets.module';
     AnalyticsModule,
     CampaignsModule,
     AdSetsModule,
+    AdsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

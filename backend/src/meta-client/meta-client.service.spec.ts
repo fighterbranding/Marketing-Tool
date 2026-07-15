@@ -163,4 +163,88 @@ describe('MetaClientService', () => {
       );
     });
   });
+
+  describe('uploadImage', () => {
+    it('uploads the file as multipart and returns the image hash', async () => {
+      mockedPost.mockResolvedValue({
+        data: {
+          images: { 'photo.jpg': { hash: 'abc123', url: 'https://...' } },
+        },
+      });
+
+      const result = await service.uploadImage('act-1', 'token-1', {
+        buffer: Buffer.from('fake-image-bytes'),
+        originalname: 'photo.jpg',
+      });
+
+      expect(result).toEqual({ hash: 'abc123' });
+      expect(mockedPost).toHaveBeenCalledTimes(1);
+      const [url, , options] = mockedPost.mock.calls[0] as [
+        string,
+        unknown,
+        { headers: { Authorization: string } },
+      ];
+      expect(url).toBe('https://graph.facebook.com/v21.0/act_act-1/adimages');
+      expect(options.headers.Authorization).toBe('Bearer token-1');
+    });
+  });
+
+  describe('createAdCreative', () => {
+    it('builds an object_story_spec with the image hash and copy', async () => {
+      mockedPost.mockResolvedValue({ data: { id: 'creative_123' } });
+
+      const result = await service.createAdCreative('act-1', 'token-1', {
+        name: 'Summer sale creative',
+        pageId: 'page-1',
+        imageHash: 'abc123',
+        destinationUrl: 'https://example.com',
+        headline: 'Big sale',
+        bodyText: 'Everything must go',
+        ctaType: 'SHOP_NOW',
+      });
+
+      expect(result).toEqual({ id: 'creative_123' });
+      expect(mockedPost).toHaveBeenCalledWith(
+        'https://graph.facebook.com/v21.0/act_act-1/adcreatives',
+        expect.objectContaining({
+          name: 'Summer sale creative',
+          object_story_spec: {
+            page_id: 'page-1',
+            link_data: {
+              image_hash: 'abc123',
+              link: 'https://example.com',
+              name: 'Big sale',
+              message: 'Everything must go',
+              call_to_action: { type: 'SHOP_NOW' },
+            },
+          },
+        }),
+        { headers: { Authorization: 'Bearer token-1' } },
+      );
+    });
+  });
+
+  describe('createAd', () => {
+    it('always sends status PAUSED and returns the created ad id', async () => {
+      mockedPost.mockResolvedValue({ data: { id: 'ad_123' } });
+
+      const result = await service.createAd('act-1', 'token-1', {
+        name: 'Summer sale ad',
+        metaAdSetId: 'adset_123',
+        creativeId: 'creative_123',
+      });
+
+      expect(result).toEqual({ id: 'ad_123' });
+      expect(mockedPost).toHaveBeenCalledWith(
+        'https://graph.facebook.com/v21.0/act_act-1/ads',
+        {
+          name: 'Summer sale ad',
+          adset_id: 'adset_123',
+          creative: { creative_id: 'creative_123' },
+          status: 'PAUSED',
+        },
+        { headers: { Authorization: 'Bearer token-1' } },
+      );
+    });
+  });
 });

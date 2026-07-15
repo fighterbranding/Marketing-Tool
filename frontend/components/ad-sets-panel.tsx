@@ -4,6 +4,7 @@ import { useAdSets } from '@/lib/hooks/use-ad-sets';
 import { extractErrorMessage } from '@/lib/extract-error-message';
 import { StatusBadge } from '@/components/status-badge';
 import { InterestPicker } from '@/components/interest-picker';
+import { AdsPanel } from '@/components/ads-panel';
 import type { AdSet, OptimizationGoal, TargetingInterest } from '@/lib/types';
 
 const OPTIMIZATION_GOALS: { value: OptimizationGoal; label: string }[] = [
@@ -184,7 +185,17 @@ function CreateAdSetForm({ campaignId, onDone }: { campaignId: string; onDone: (
   );
 }
 
-function AdSetRow({ campaignId, adSet }: { campaignId: string; adSet: AdSet }) {
+function AdSetRow({
+  campaignId,
+  adSet,
+  isExpanded,
+  onToggleExpand,
+}: {
+  campaignId: string;
+  adSet: AdSet;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+}) {
   const { updateStatus } = useAdSets(campaignId);
   const [error, setError] = useState('');
   const nextStatus = adSet.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
@@ -201,15 +212,24 @@ function AdSetRow({ campaignId, adSet }: { campaignId: string; adSet: AdSet }) {
   return (
     <div className="py-2 border-b border-gray-100 last:border-0">
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-900">{adSet.name}</p>
-          <p className="text-xs text-gray-500">
-            ${(adSet.dailyBudgetCents / 100).toFixed(2)}/day · {adSet.targeting.countries.join(', ')}{' '}
-            · ages {adSet.targeting.ageMin}-{adSet.targeting.ageMax}
-            {adSet.targeting.interests.length > 0 &&
-              ` · ${adSet.targeting.interests.map((i) => i.name).join(', ')}`}
-          </p>
-        </div>
+        <button
+          onClick={onToggleExpand}
+          className="flex items-center gap-2 text-left hover:text-indigo-600"
+        >
+          <span className={`inline-block transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+            ▸
+          </span>
+          <span>
+            <p className="text-sm font-medium text-gray-900">{adSet.name}</p>
+            <p className="text-xs text-gray-500">
+              ${(adSet.dailyBudgetCents / 100).toFixed(2)}/day ·{' '}
+              {adSet.targeting.countries.join(', ')} · ages {adSet.targeting.ageMin}-
+              {adSet.targeting.ageMax}
+              {adSet.targeting.interests.length > 0 &&
+                ` · ${adSet.targeting.interests.map((i) => i.name).join(', ')}`}
+            </p>
+          </span>
+        </button>
         <div className="flex items-center gap-3">
           <StatusBadge status={adSet.status} />
           <button
@@ -222,6 +242,11 @@ function AdSetRow({ campaignId, adSet }: { campaignId: string; adSet: AdSet }) {
         </div>
       </div>
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+      {isExpanded && (
+        <div className="mt-3 ml-6 pl-3 border-l-2 border-gray-100">
+          <AdsPanel campaignId={campaignId} adSetId={adSet.id} />
+        </div>
+      )}
     </div>
   );
 }
@@ -229,6 +254,7 @@ function AdSetRow({ campaignId, adSet }: { campaignId: string; adSet: AdSet }) {
 export function AdSetsPanel({ campaignId }: { campaignId: string }) {
   const { list } = useAdSets(campaignId);
   const [showForm, setShowForm] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
     <div className="space-y-3">
@@ -252,7 +278,15 @@ export function AdSetsPanel({ campaignId }: { campaignId: string }) {
         <p className="text-sm text-gray-500">No ad sets yet for this campaign.</p>
       )}
       {list.data?.map((adSet) => (
-        <AdSetRow key={adSet.id} campaignId={campaignId} adSet={adSet} />
+        <AdSetRow
+          key={adSet.id}
+          campaignId={campaignId}
+          adSet={adSet}
+          isExpanded={expandedId === adSet.id}
+          onToggleExpand={() =>
+            setExpandedId((current) => (current === adSet.id ? null : adSet.id))
+          }
+        />
       ))}
     </div>
   );

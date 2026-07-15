@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { Suspense } from 'react';
 import { NavBar } from '@/components/nav-bar';
@@ -19,13 +19,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     () => false
   );
 
+  // getServerSnapshot() above always returns false (no localStorage on the
+  // server), so on a hard navigation the very first client render still
+  // reflects that SSR-matched snapshot. Gate the redirect on having
+  // completed a mount cycle so we never redirect off that transient
+  // false-negative before useSyncExternalStore's hydration correction lands.
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => setHasMounted(true), []);
+
   useEffect(() => {
-    if (!authed) router.replace('/login');
-  }, [authed, router]);
+    if (hasMounted && !authed) router.replace('/login');
+  }, [hasMounted, authed, router]);
 
   // Render nothing until the token check passes — avoids flashing protected
   // UI and firing unauthenticated API requests before the redirect lands
-  if (!authed) return null;
+  if (!hasMounted || !authed) return null;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
