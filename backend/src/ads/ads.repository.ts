@@ -73,4 +73,16 @@ export class AdsRepository {
       select: AD_SELECT,
     });
   }
+
+  async updateName(id: string, name: string): Promise<AdRecord> {
+    return this.prisma.db.ad.update({
+      where: { id },
+      data: { name },
+      select: AD_SELECT,
+    });
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.prisma.db.ad.delete({ where: { id } });
+  }
 }

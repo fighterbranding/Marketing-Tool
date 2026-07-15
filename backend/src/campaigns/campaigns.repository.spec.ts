@@ -15,6 +15,7 @@ describe('CampaignsRepository', () => {
       findMany: jest.Mock;
       findFirst: jest.Mock;
       update: jest.Mock;
+      delete: jest.Mock;
     };
   };
 
@@ -26,6 +27,7 @@ describe('CampaignsRepository', () => {
         findMany: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
+        delete: jest.fn(),
       },
     };
 
@@ -98,5 +100,32 @@ describe('CampaignsRepository', () => {
       }),
     );
     expect(result.status).toBe('ACTIVE');
+  });
+
+  it('updateName updates the campaign name by id', async () => {
+    prismaDb.campaign.update.mockResolvedValue({
+      id: 'camp-1',
+      name: 'Renamed',
+    });
+
+    const result = await repo.updateName('camp-1', 'Renamed');
+
+    expect(prismaDb.campaign.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'camp-1' },
+        data: { name: 'Renamed' },
+      }),
+    );
+    expect(result.name).toBe('Renamed');
+  });
+
+  it('delete removes the campaign by id', async () => {
+    prismaDb.campaign.delete.mockResolvedValue({ id: 'camp-1' });
+
+    await repo.delete('camp-1');
+
+    expect(prismaDb.campaign.delete).toHaveBeenCalledWith({
+      where: { id: 'camp-1' },
+    });
   });
 });

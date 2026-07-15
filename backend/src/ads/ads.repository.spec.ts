@@ -14,6 +14,7 @@ describe('AdsRepository', () => {
       findMany: jest.Mock;
       findFirst: jest.Mock;
       update: jest.Mock;
+      delete: jest.Mock;
     };
   };
 
@@ -33,6 +34,7 @@ describe('AdsRepository', () => {
         findMany: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
+        delete: jest.fn(),
       },
     };
 
@@ -97,5 +99,27 @@ describe('AdsRepository', () => {
       }),
     );
     expect(result.status).toBe('ACTIVE');
+  });
+
+  it('updateName updates the ad name by id', async () => {
+    prismaDb.ad.update.mockResolvedValue({ id: 'ad-1', name: 'Renamed' });
+
+    const result = await repo.updateName('ad-1', 'Renamed');
+
+    expect(prismaDb.ad.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'ad-1' },
+        data: { name: 'Renamed' },
+      }),
+    );
+    expect(result.name).toBe('Renamed');
+  });
+
+  it('delete removes the ad by id', async () => {
+    prismaDb.ad.delete.mockResolvedValue({ id: 'ad-1' });
+
+    await repo.delete('ad-1');
+
+    expect(prismaDb.ad.delete).toHaveBeenCalledWith({ where: { id: 'ad-1' } });
   });
 });

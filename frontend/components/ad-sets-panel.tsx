@@ -19,17 +19,34 @@ const PLATFORMS: { value: string; label: string }[] = [
   { value: 'instagram', label: 'Instagram' },
 ];
 
-function CreateAdSetForm({ campaignId, onDone }: { campaignId: string; onDone: () => void }) {
-  const { create } = useAdSets(campaignId);
-  const [name, setName] = useState('');
-  const [dailyBudgetDollars, setDailyBudgetDollars] = useState('10');
-  const [optimizationGoal, setOptimizationGoal] = useState<OptimizationGoal>('LINK_CLICKS');
-  const [country, setCountry] = useState('US');
-  const [ageMin, setAgeMin] = useState(18);
-  const [ageMax, setAgeMax] = useState(65);
-  const [platforms, setPlatforms] = useState<string[]>(['facebook', 'instagram']);
-  const [interests, setInterests] = useState<TargetingInterest[]>([]);
+function AdSetForm({
+  campaignId,
+  existing,
+  onDone,
+}: {
+  campaignId: string;
+  existing?: AdSet;
+  onDone: () => void;
+}) {
+  const { create, update } = useAdSets(campaignId);
+  const [name, setName] = useState(existing?.name ?? '');
+  const [dailyBudgetDollars, setDailyBudgetDollars] = useState(
+    existing ? (existing.dailyBudgetCents / 100).toFixed(2) : '10',
+  );
+  const [optimizationGoal, setOptimizationGoal] = useState<OptimizationGoal>(
+    existing?.optimizationGoal ?? 'LINK_CLICKS',
+  );
+  const [country, setCountry] = useState(existing?.targeting.countries[0] ?? 'US');
+  const [ageMin, setAgeMin] = useState(existing?.targeting.ageMin ?? 18);
+  const [ageMax, setAgeMax] = useState(existing?.targeting.ageMax ?? 65);
+  const [platforms, setPlatforms] = useState<string[]>(
+    existing?.targeting.platforms ?? ['facebook', 'instagram'],
+  );
+  const [interests, setInterests] = useState<TargetingInterest[]>(
+    existing?.targeting.interests ?? [],
+  );
   const [error, setError] = useState('');
+  const isSaving = existing ? update.isPending : create.isPending;
 
   function togglePlatform(value: string) {
     setPlatforms((prev) =>
@@ -52,15 +69,15 @@ function CreateAdSetForm({ campaignId, onDone }: { campaignId: string; onDone: (
     }
 
     try {
-      await create.mutateAsync({
-        name,
-        dailyBudgetCents,
-        optimizationGoal,
-        targeting: { countries: [country], ageMin, ageMax, platforms, interests },
-      });
+      const targeting = { countries: [country], ageMin, ageMax, platforms, interests };
+      if (existing) {
+        await update.mutateAsync({ id: existing.id, name, dailyBudgetCents, optimizationGoal, targeting });
+      } else {
+        await create.mutateAsync({ name, dailyBudgetCents, optimizationGoal, targeting });
+      }
       onDone();
     } catch (err) {
-      setError(extractErrorMessage(err, 'Could not create ad set'));
+      setError(extractErrorMessage(err, `Could not ${existing ? 'save' : 'create'} ad set`));
     }
   }
 
@@ -162,16 +179,18 @@ function CreateAdSetForm({ campaignId, onDone }: { campaignId: string; onDone: (
       <InterestPicker value={interests} onChange={setInterests} />
 
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <p className="text-xs text-gray-500">
-        New ad sets are always created paused. You launch them explicitly once ready.
-      </p>
+      {!existing && (
+        <p className="text-xs text-gray-500">
+          New ad sets are always created paused. You launch them explicitly once ready.
+        </p>
+      )}
       <div className="flex gap-3">
         <button
           type="submit"
-          disabled={create.isPending}
+          disabled={isSaving}
           className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
         >
-          {create.isPending ? 'Creating…' : 'Create ad set'}
+          {isSaving ? 'Saving…' : existing ? 'Save changes' : 'Create ad set'}
         </button>
         <button
           type="button"
@@ -196,8 +215,9 @@ function AdSetRow({
   isExpanded: boolean;
   onToggleExpand: () => void;
 }) {
-  const { updateStatus } = useAdSets(campaignId);
+  const { updateStatus, remove } = useAdSets(campaignId);
   const [error, setError] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
   const nextStatus = adSet.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
 
   async function handleToggle() {
@@ -207,6 +227,24 @@ function AdSetRow({
     } catch (err) {
       setError(extractErrorMessage(err, 'Could not update status'));
     }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm(`Delete "${adSet.name}"? This can't be undone.`)) return;
+    setError('');
+    try {
+      await remove.mutateAsync(adSet.id);
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Could not delete ad set'));
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <div className="py-2 border-b border-gray-100 last:border-0">
+        <AdSetForm campaignId={campaignId} existing={adSet} onDone={() => setIsEditing(false)} />
+      </div>
+    );
   }
 
   return (
@@ -239,6 +277,19 @@ function AdSetRow({
           >
             {adSet.status === 'ACTIVE' ? 'Pause' : 'Resume'}
           </button>
+          <button
+            onClick={() => setIsEditing(true)}
+            className="text-sm font-medium text-gray-500 hover:text-gray-700"
+          >
+            Edit
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={remove.isPending}
+            className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
+          >
+            Delete
+          </button>
         </div>
       </div>
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
@@ -270,7 +321,7 @@ export function AdSetsPanel({ campaignId }: { campaignId: string }) {
         )}
       </div>
 
-      {showForm && <CreateAdSetForm campaignId={campaignId} onDone={() => setShowForm(false)} />}
+      {showForm && <AdSetForm campaignId={campaignId} onDone={() => setShowForm(false)} />}
 
       {list.isLoading && <p className="text-sm text-gray-500">Loading ad sets…</p>}
       {list.isError && <p className="text-sm text-red-600">Could not load ad sets.</p>}

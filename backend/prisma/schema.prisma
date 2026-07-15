@@ -101,7 +101,7 @@ model Campaign {
 
 model AdSet {
   id               String   @id @default(uuid())
-  campaign         Campaign @relation(fields: [campaignId], references: [id])
+  campaign         Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   campaignId       String
   metaAdSetId      String   @unique
   name             String
@@ -118,7 +118,7 @@ model AdSet {
 
 model Ad {
   id             String   @id @default(uuid())
-  adSet          AdSet    @relation(fields: [adSetId], references: [id])
+  adSet          AdSet    @relation(fields: [adSetId], references: [id], onDelete: Cascade)
   adSetId        String
   metaAdId       String   @unique
   name           String

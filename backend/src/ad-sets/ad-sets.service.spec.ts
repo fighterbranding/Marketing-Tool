@@ -27,6 +27,8 @@ describe('AdSetsService', () => {
     findAllByCampaign: jest.Mock;
     findOneScoped: jest.Mock;
     updateStatus: jest.Mock;
+    updateFields: jest.Mock;
+    delete: jest.Mock;
   };
   let campaignsRepo: {
     findOneScoped: jest.Mock;
@@ -35,6 +37,8 @@ describe('AdSetsService', () => {
   let metaClient: {
     createAdSet: jest.Mock;
     updateObjectStatus: jest.Mock;
+    updateAdSet: jest.Mock;
+    deleteObject: jest.Mock;
     searchTargeting: jest.Mock;
   };
   let encryption: { decrypt: jest.Mock };
@@ -70,6 +74,8 @@ describe('AdSetsService', () => {
       findAllByCampaign: jest.fn(),
       findOneScoped: jest.fn(),
       updateStatus: jest.fn(),
+      updateFields: jest.fn(),
+      delete: jest.fn(),
     };
     campaignsRepo = {
       findOneScoped: jest.fn(),
@@ -78,6 +84,8 @@ describe('AdSetsService', () => {
     metaClient = {
       createAdSet: jest.fn(),
       updateObjectStatus: jest.fn(),
+      updateAdSet: jest.fn(),
+      deleteObject: jest.fn(),
       searchTargeting: jest.fn(),
     };
     encryption = { decrypt: jest.fn().mockReturnValue('decrypted-token') };
@@ -219,6 +227,100 @@ describe('AdSetsService', () => {
         ),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(metaClient.updateObjectStatus).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('update', () => {
+    it('updates on Meta then locally for an ad set owned by the requesting client', async () => {
+      campaignsRepo.findOneScoped.mockResolvedValue(campaign);
+      repo.findOneScoped.mockResolvedValue({
+        id: 'adset-1',
+        metaAdSetId: 'meta-adset-1',
+        name: 'Warm audience',
+        dailyBudgetCents: 2000,
+        optimizationGoal: 'LINK_CLICKS',
+        targeting,
+        status: 'PAUSED',
+        createdAt: new Date(),
+      });
+      campaignsRepo.findActiveConnection.mockResolvedValue(activeConn);
+      repo.updateFields.mockResolvedValue({ id: 'adset-1', name: 'Renamed' });
+
+      const result = await service.update('client-1', 'camp-1', 'adset-1', {
+        name: 'Renamed',
+        dailyBudgetCents: 4000,
+        optimizationGoal: 'REACH',
+        targeting,
+      });
+
+      expect(metaClient.updateAdSet).toHaveBeenCalledWith(
+        'meta-adset-1',
+        'decrypted-token',
+        {
+          name: 'Renamed',
+          dailyBudgetCents: 4000,
+          optimizationGoal: 'REACH',
+          targeting,
+        },
+      );
+      expect(repo.updateFields).toHaveBeenCalledWith(
+        'adset-1',
+        'Renamed',
+        4000,
+        'REACH',
+        targeting,
+      );
+      expect(result.name).toBe('Renamed');
+    });
+
+    it('throws NotFoundException for an ad set outside the campaign scope', async () => {
+      campaignsRepo.findOneScoped.mockResolvedValue(campaign);
+      repo.findOneScoped.mockResolvedValue(null);
+
+      await expect(
+        service.update('client-1', 'camp-1', 'someone-elses-adset', {
+          name: 'Renamed',
+          dailyBudgetCents: 4000,
+          optimizationGoal: 'REACH',
+          targeting,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(metaClient.updateAdSet).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('delete', () => {
+    it('deletes on Meta then locally for an ad set owned by the requesting client', async () => {
+      campaignsRepo.findOneScoped.mockResolvedValue(campaign);
+      repo.findOneScoped.mockResolvedValue({
+        id: 'adset-1',
+        metaAdSetId: 'meta-adset-1',
+        name: 'Warm audience',
+        dailyBudgetCents: 2000,
+        optimizationGoal: 'LINK_CLICKS',
+        targeting,
+        status: 'PAUSED',
+        createdAt: new Date(),
+      });
+      campaignsRepo.findActiveConnection.mockResolvedValue(activeConn);
+
+      await service.delete('client-1', 'camp-1', 'adset-1');
+
+      expect(metaClient.deleteObject).toHaveBeenCalledWith(
+        'meta-adset-1',
+        'decrypted-token',
+      );
+      expect(repo.delete).toHaveBeenCalledWith('adset-1');
+    });
+
+    it('throws NotFoundException for an ad set outside the campaign scope', async () => {
+      campaignsRepo.findOneScoped.mockResolvedValue(campaign);
+      repo.findOneScoped.mockResolvedValue(null);
+
+      await expect(
+        service.delete('client-1', 'camp-1', 'someone-elses-adset'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(metaClient.deleteObject).not.toHaveBeenCalled();
     });
   });
 

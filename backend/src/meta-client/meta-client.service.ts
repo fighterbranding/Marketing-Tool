@@ -87,6 +87,21 @@ export interface MetaAd {
   id: string;
 }
 
+export interface UpdateCampaignInput {
+  name: string;
+}
+
+export interface UpdateAdSetInput {
+  name: string;
+  dailyBudgetCents: number;
+  optimizationGoal: string;
+  targeting: TargetingSpec;
+}
+
+export interface UpdateAdInput {
+  name: string;
+}
+
 @Injectable()
 export class MetaClientService {
   async getInsights(
@@ -275,6 +290,84 @@ export class MetaClientService {
       await axios.post(
         `${GRAPH_API_BASE}/${metaObjectId}`,
         { status },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
+  }
+
+  // Campaigns, ad sets, and ads all share this same delete pattern too.
+  async deleteObject(metaObjectId: string, token: string): Promise<void> {
+    try {
+      await axios.delete(`${GRAPH_API_BASE}/${metaObjectId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
+  }
+
+  // Objective is immutable on Meta's side once a campaign is created, so
+  // only name is editable here.
+  async updateCampaign(
+    metaCampaignId: string,
+    token: string,
+    data: UpdateCampaignInput,
+  ): Promise<void> {
+    try {
+      await axios.post(
+        `${GRAPH_API_BASE}/${metaCampaignId}`,
+        { name: data.name },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
+  }
+
+  async updateAdSet(
+    metaAdSetId: string,
+    token: string,
+    data: UpdateAdSetInput,
+  ): Promise<void> {
+    try {
+      await axios.post(
+        `${GRAPH_API_BASE}/${metaAdSetId}`,
+        {
+          name: data.name,
+          daily_budget: data.dailyBudgetCents,
+          optimization_goal: data.optimizationGoal,
+          targeting: {
+            geo_locations: { countries: data.targeting.countries },
+            age_min: data.targeting.ageMin,
+            age_max: data.targeting.ageMax,
+            interests: data.targeting.interests.map((i) => ({
+              id: i.id,
+              name: i.name,
+            })),
+            publisher_platforms: data.targeting.platforms,
+          },
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
+  }
+
+  // The ad creative (image/copy) is immutable on Meta's side once created —
+  // changing creative content means creating a new creative and pointing
+  // the ad at it, out of scope here. Only the ad's own name is editable.
+  async updateAd(
+    metaAdId: string,
+    token: string,
+    data: UpdateAdInput,
+  ): Promise<void> {
+    try {
+      await axios.post(
+        `${GRAPH_API_BASE}/${metaAdId}`,
+        { name: data.name },
         { headers: { Authorization: `Bearer ${token}` } },
       );
     } catch (err) {

@@ -1,6 +1,6 @@
 jest.mock('axios', () => ({
   __esModule: true,
-  default: { post: jest.fn(), get: jest.fn() },
+  default: { post: jest.fn(), get: jest.fn(), delete: jest.fn() },
   isAxiosError: jest.fn(),
 }));
 
@@ -13,12 +13,15 @@ describe('MetaClientService', () => {
   const mockedPost = axios.post as jest.Mock;
   // eslint-disable-next-line @typescript-eslint/unbound-method -- referencing the mock fn, never calling it unbound
   const mockedGet = axios.get as jest.Mock;
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- referencing the mock fn, never calling it unbound
+  const mockedDelete = axios.delete as jest.Mock;
   const mockedIsAxiosError = isAxiosError as unknown as jest.Mock;
 
   beforeEach(() => {
     service = new MetaClientService();
     mockedPost.mockReset();
     mockedGet.mockReset();
+    mockedDelete.mockReset();
     mockedIsAxiosError.mockReset();
   });
 
@@ -243,6 +246,83 @@ describe('MetaClientService', () => {
           creative: { creative_id: 'creative_123' },
           status: 'PAUSED',
         },
+        { headers: { Authorization: 'Bearer token-1' } },
+      );
+    });
+  });
+
+  describe('deleteObject', () => {
+    it('sends a DELETE request to the object id (works for campaigns, ad sets, or ads)', async () => {
+      mockedDelete.mockResolvedValue({ data: {} });
+
+      await service.deleteObject('camp_123', 'token-1');
+
+      expect(mockedDelete).toHaveBeenCalledWith(
+        'https://graph.facebook.com/v21.0/camp_123',
+        { headers: { Authorization: 'Bearer token-1' } },
+      );
+    });
+  });
+
+  describe('updateCampaign', () => {
+    it('only sends the name (objective is immutable on Meta)', async () => {
+      mockedPost.mockResolvedValue({ data: {} });
+
+      await service.updateCampaign('camp_123', 'token-1', { name: 'Renamed' });
+
+      expect(mockedPost).toHaveBeenCalledWith(
+        'https://graph.facebook.com/v21.0/camp_123',
+        { name: 'Renamed' },
+        { headers: { Authorization: 'Bearer token-1' } },
+      );
+    });
+  });
+
+  describe('updateAdSet', () => {
+    it('sends name, budget, optimization goal, and mapped targeting', async () => {
+      mockedPost.mockResolvedValue({ data: {} });
+
+      await service.updateAdSet('adset_123', 'token-1', {
+        name: 'Renamed audience',
+        dailyBudgetCents: 3000,
+        optimizationGoal: 'REACH',
+        targeting: {
+          countries: ['CA'],
+          ageMin: 21,
+          ageMax: 55,
+          platforms: ['facebook'],
+          interests: [],
+        },
+      });
+
+      expect(mockedPost).toHaveBeenCalledWith(
+        'https://graph.facebook.com/v21.0/adset_123',
+        {
+          name: 'Renamed audience',
+          daily_budget: 3000,
+          optimization_goal: 'REACH',
+          targeting: {
+            geo_locations: { countries: ['CA'] },
+            age_min: 21,
+            age_max: 55,
+            interests: [],
+            publisher_platforms: ['facebook'],
+          },
+        },
+        { headers: { Authorization: 'Bearer token-1' } },
+      );
+    });
+  });
+
+  describe('updateAd', () => {
+    it('only sends the name (creative is immutable post-creation)', async () => {
+      mockedPost.mockResolvedValue({ data: {} });
+
+      await service.updateAd('ad_123', 'token-1', { name: 'Renamed ad' });
+
+      expect(mockedPost).toHaveBeenCalledWith(
+        'https://graph.facebook.com/v21.0/ad_123',
+        { name: 'Renamed ad' },
         { headers: { Authorization: 'Bearer token-1' } },
       );
     });

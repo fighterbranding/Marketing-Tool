@@ -15,6 +15,7 @@ import {
 } from '../meta-client/meta-client.service';
 import { TokenEncryptionService } from '../auth/token-encryption.service';
 import { CreateAdDto } from './dto/create-ad.dto';
+import { UpdateAdDto } from './dto/update-ad.dto';
 
 export interface UploadedFile {
   buffer: Buffer;
@@ -109,6 +110,45 @@ export class AdsService {
 
     await this.metaClient.updateObjectStatus(ad.metaAdId, token, status);
     return this.repo.updateStatus(id, status);
+  }
+
+  async update(
+    clientId: string,
+    campaignId: string,
+    adSetId: string,
+    id: string,
+    dto: UpdateAdDto,
+  ): Promise<AdRecord> {
+    await this.requireCampaign(clientId, campaignId);
+    await this.requireAdSet(campaignId, adSetId);
+
+    const ad = await this.repo.findOneScoped(adSetId, id);
+    if (!ad) throw new NotFoundException('Ad not found');
+
+    const conn = await this.requireActiveConnection(clientId);
+    const token = this.decrypt(conn);
+
+    await this.metaClient.updateAd(ad.metaAdId, token, { name: dto.name });
+    return this.repo.updateName(id, dto.name);
+  }
+
+  async delete(
+    clientId: string,
+    campaignId: string,
+    adSetId: string,
+    id: string,
+  ): Promise<void> {
+    await this.requireCampaign(clientId, campaignId);
+    await this.requireAdSet(campaignId, adSetId);
+
+    const ad = await this.repo.findOneScoped(adSetId, id);
+    if (!ad) throw new NotFoundException('Ad not found');
+
+    const conn = await this.requireActiveConnection(clientId);
+    const token = this.decrypt(conn);
+
+    await this.metaClient.deleteObject(ad.metaAdId, token);
+    await this.repo.delete(id);
   }
 
   private async requireCampaign(clientId: string, campaignId: string) {

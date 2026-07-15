@@ -99,8 +99,10 @@ function CampaignRow({
   isExpanded: boolean;
   onToggleExpand: () => void;
 }) {
-  const { updateStatus } = useCampaigns();
+  const { updateStatus, update, remove } = useCampaigns();
   const [error, setError] = useState('');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(campaign.name);
   const nextStatus = campaign.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
 
   async function handleToggle() {
@@ -112,33 +114,96 @@ function CampaignRow({
     }
   }
 
+  async function handleSaveName() {
+    setError('');
+    try {
+      await update.mutateAsync({ id: campaign.id, name: nameDraft });
+      setIsEditingName(false);
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Could not rename campaign'));
+    }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm(`Delete "${campaign.name}"? This can't be undone.`)) return;
+    setError('');
+    try {
+      await remove.mutateAsync(campaign.id);
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Could not delete campaign'));
+    }
+  }
+
   return (
     <>
       <tr className="border-b border-gray-100 last:border-0">
         <td className="py-3 px-4 text-sm text-gray-900">
-          <button
-            onClick={onToggleExpand}
-            className="flex items-center gap-2 hover:text-indigo-600"
-          >
-            <span
-              className={`inline-block transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+          {isEditingName ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                maxLength={100}
+                className="rounded-lg border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <button
+                onClick={handleSaveName}
+                disabled={update.isPending}
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  setNameDraft(campaign.name);
+                  setIsEditingName(false);
+                }}
+                className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onToggleExpand}
+              className="flex items-center gap-2 hover:text-indigo-600"
             >
-              ▸
-            </span>
-            {campaign.name}
-          </button>
+              <span
+                className={`inline-block transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+              >
+                ▸
+              </span>
+              {campaign.name}
+            </button>
+          )}
         </td>
         <td className="py-3 px-4 text-sm text-gray-600">{objectiveLabel(campaign.objective)}</td>
         <td className="py-3 px-4">
           <StatusBadge status={campaign.status} />
         </td>
-        <td className="py-3 px-4 text-right">
+        <td className="py-3 px-4 text-right space-x-3">
           <button
             onClick={handleToggle}
             disabled={updateStatus.isPending}
             className="text-sm font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
           >
             {campaign.status === 'ACTIVE' ? 'Pause' : 'Resume'}
+          </button>
+          {!isEditingName && (
+            <button
+              onClick={() => setIsEditingName(true)}
+              className="text-sm font-medium text-gray-500 hover:text-gray-700"
+            >
+              Edit
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            disabled={remove.isPending}
+            className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
+          >
+            Delete
           </button>
           {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
         </td>

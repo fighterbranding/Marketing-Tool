@@ -35,5 +35,28 @@ export function useAdSets(campaignId: string) {
     },
   });
 
-  return { list, create, updateStatus };
+  const update = useMutation({
+    mutationFn: ({
+      id,
+      ...input
+    }: {
+      id: string;
+      name: string;
+      dailyBudgetCents: number;
+      optimizationGoal: OptimizationGoal;
+      targeting: TargetingSpec;
+    }) => api.patch<AdSet>(`/campaigns/${campaignId}/ad-sets/${id}`, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['ad-sets', campaignId] });
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => api.delete(`/campaigns/${campaignId}/ad-sets/${id}`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['ad-sets', campaignId] });
+    },
+  });
+
+  return { list, create, updateStatus, update, remove };
 }

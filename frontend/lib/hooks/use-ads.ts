@@ -48,5 +48,21 @@ export function useAds(campaignId: string, adSetId: string) {
     },
   });
 
-  return { list, create, updateStatus };
+  const update = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      api.patch<Ad>(`/campaigns/${campaignId}/ad-sets/${adSetId}/ads/${id}`, { name }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['ads', campaignId, adSetId] });
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/campaigns/${campaignId}/ad-sets/${adSetId}/ads/${id}`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['ads', campaignId, adSetId] });
+    },
+  });
+
+  return { list, create, updateStatus, update, remove };
 }

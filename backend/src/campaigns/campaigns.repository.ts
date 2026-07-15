@@ -83,4 +83,16 @@ export class CampaignsRepository {
       select: CAMPAIGN_SELECT,
     });
   }
+
+  async updateName(id: string, name: string): Promise<CampaignRecord> {
+    return this.prisma.db.campaign.update({
+      where: { id },
+      data: { name },
+      select: CAMPAIGN_SELECT,
+    });
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.prisma.db.campaign.delete({ where: { id } });
+  }
 }

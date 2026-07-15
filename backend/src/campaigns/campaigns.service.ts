@@ -14,6 +14,7 @@ import {
 } from '../meta-client/meta-client.service';
 import { TokenEncryptionService } from '../auth/token-encryption.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
+import { UpdateCampaignDto } from './dto/update-campaign.dto';
 
 @Injectable()
 export class CampaignsService {
@@ -74,6 +75,43 @@ export class CampaignsService {
     );
 
     return this.repo.updateStatus(id, status);
+  }
+
+  async update(
+    clientId: string,
+    id: string,
+    dto: UpdateCampaignDto,
+  ): Promise<CampaignRecord> {
+    const campaign = await this.repo.findOneScoped(clientId, id);
+    if (!campaign) throw new NotFoundException('Campaign not found');
+
+    const conn = await this.requireActiveConnection(clientId);
+    const token = this.encryption.decrypt(
+      conn.encryptedToken,
+      conn.encryptionIv,
+      conn.encryptionTag,
+    );
+
+    await this.metaClient.updateCampaign(campaign.metaCampaignId, token, {
+      name: dto.name,
+    });
+
+    return this.repo.updateName(id, dto.name);
+  }
+
+  async delete(clientId: string, id: string): Promise<void> {
+    const campaign = await this.repo.findOneScoped(clientId, id);
+    if (!campaign) throw new NotFoundException('Campaign not found');
+
+    const conn = await this.requireActiveConnection(clientId);
+    const token = this.encryption.decrypt(
+      conn.encryptedToken,
+      conn.encryptionIv,
+      conn.encryptionTag,
+    );
+
+    await this.metaClient.deleteObject(campaign.metaCampaignId, token);
+    await this.repo.delete(id);
   }
 
   private async requireActiveConnection(

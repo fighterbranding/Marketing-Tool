@@ -30,6 +30,8 @@ describe('AdsService', () => {
     findAllByAdSet: jest.Mock;
     findOneScoped: jest.Mock;
     updateStatus: jest.Mock;
+    updateName: jest.Mock;
+    delete: jest.Mock;
   };
   let campaignsRepo: {
     findOneScoped: jest.Mock;
@@ -41,6 +43,8 @@ describe('AdsService', () => {
     createAdCreative: jest.Mock;
     createAd: jest.Mock;
     updateObjectStatus: jest.Mock;
+    updateAd: jest.Mock;
+    deleteObject: jest.Mock;
   };
   let encryption: { decrypt: jest.Mock };
 
@@ -71,6 +75,8 @@ describe('AdsService', () => {
       findAllByAdSet: jest.fn(),
       findOneScoped: jest.fn(),
       updateStatus: jest.fn(),
+      updateName: jest.fn(),
+      delete: jest.fn(),
     };
     campaignsRepo = {
       findOneScoped: jest.fn(),
@@ -82,6 +88,8 @@ describe('AdsService', () => {
       createAdCreative: jest.fn(),
       createAd: jest.fn(),
       updateObjectStatus: jest.fn(),
+      updateAd: jest.fn(),
+      deleteObject: jest.fn(),
     };
     encryption = { decrypt: jest.fn().mockReturnValue('decrypted-token') };
 
@@ -247,6 +255,81 @@ describe('AdsService', () => {
         ),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(metaClient.updateObjectStatus).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('update', () => {
+    it('renames on Meta then locally for an ad owned by the requesting client', async () => {
+      campaignsRepo.findOneScoped.mockResolvedValue(campaign);
+      adSetsRepo.findOneScoped.mockResolvedValue(adSet);
+      repo.findOneScoped.mockResolvedValue({
+        id: 'ad-1',
+        metaAdId: 'meta-ad-1',
+      });
+      campaignsRepo.findActiveConnection.mockResolvedValue(activeConn);
+      repo.updateName.mockResolvedValue({ id: 'ad-1', name: 'Renamed ad' });
+
+      const result = await service.update(
+        'client-1',
+        'camp-1',
+        'adset-1',
+        'ad-1',
+        { name: 'Renamed ad' },
+      );
+
+      expect(metaClient.updateAd).toHaveBeenCalledWith(
+        'meta-ad-1',
+        'decrypted-token',
+        {
+          name: 'Renamed ad',
+        },
+      );
+      expect(repo.updateName).toHaveBeenCalledWith('ad-1', 'Renamed ad');
+      expect(result.name).toBe('Renamed ad');
+    });
+
+    it('throws NotFoundException for an ad outside the ad set scope', async () => {
+      campaignsRepo.findOneScoped.mockResolvedValue(campaign);
+      adSetsRepo.findOneScoped.mockResolvedValue(adSet);
+      repo.findOneScoped.mockResolvedValue(null);
+
+      await expect(
+        service.update('client-1', 'camp-1', 'adset-1', 'someone-elses-ad', {
+          name: 'Renamed ad',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(metaClient.updateAd).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('delete', () => {
+    it('deletes on Meta then locally for an ad owned by the requesting client', async () => {
+      campaignsRepo.findOneScoped.mockResolvedValue(campaign);
+      adSetsRepo.findOneScoped.mockResolvedValue(adSet);
+      repo.findOneScoped.mockResolvedValue({
+        id: 'ad-1',
+        metaAdId: 'meta-ad-1',
+      });
+      campaignsRepo.findActiveConnection.mockResolvedValue(activeConn);
+
+      await service.delete('client-1', 'camp-1', 'adset-1', 'ad-1');
+
+      expect(metaClient.deleteObject).toHaveBeenCalledWith(
+        'meta-ad-1',
+        'decrypted-token',
+      );
+      expect(repo.delete).toHaveBeenCalledWith('ad-1');
+    });
+
+    it('throws NotFoundException for an ad outside the ad set scope', async () => {
+      campaignsRepo.findOneScoped.mockResolvedValue(campaign);
+      adSetsRepo.findOneScoped.mockResolvedValue(adSet);
+      repo.findOneScoped.mockResolvedValue(null);
+
+      await expect(
+        service.delete('client-1', 'camp-1', 'adset-1', 'someone-elses-ad'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(metaClient.deleteObject).not.toHaveBeenCalled();
     });
   });
 

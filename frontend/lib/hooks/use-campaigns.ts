@@ -31,5 +31,20 @@ export function useCampaigns() {
     },
   });
 
-  return { list, create, updateStatus };
+  const update = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      api.patch<Campaign>(`/campaigns/${id}`, { name }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => api.delete(`/campaigns/${id}`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+    },
+  });
+
+  return { list, create, updateStatus, update, remove };
 }

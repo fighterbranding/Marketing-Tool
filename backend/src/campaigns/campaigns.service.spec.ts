@@ -23,10 +23,14 @@ describe('CampaignsService', () => {
     findAllByClient: jest.Mock;
     findOneScoped: jest.Mock;
     updateStatus: jest.Mock;
+    updateName: jest.Mock;
+    delete: jest.Mock;
   };
   let metaClient: {
     createCampaign: jest.Mock;
     updateObjectStatus: jest.Mock;
+    updateCampaign: jest.Mock;
+    deleteObject: jest.Mock;
   };
   let encryption: { decrypt: jest.Mock };
 
@@ -45,8 +49,15 @@ describe('CampaignsService', () => {
       findAllByClient: jest.fn(),
       findOneScoped: jest.fn(),
       updateStatus: jest.fn(),
+      updateName: jest.fn(),
+      delete: jest.fn(),
     };
-    metaClient = { createCampaign: jest.fn(), updateObjectStatus: jest.fn() };
+    metaClient = {
+      createCampaign: jest.fn(),
+      updateObjectStatus: jest.fn(),
+      updateCampaign: jest.fn(),
+      deleteObject: jest.fn(),
+    };
     encryption = { decrypt: jest.fn().mockReturnValue('decrypted-token') };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -170,6 +181,75 @@ describe('CampaignsService', () => {
 
       expect(repo.findAllByClient).toHaveBeenCalledWith('client-1');
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('update', () => {
+    it('renames on Meta then locally, for a campaign owned by the requesting client', async () => {
+      repo.findOneScoped.mockResolvedValue({
+        id: 'db-1',
+        metaCampaignId: 'meta-123',
+        name: 'Sale',
+        objective: 'OUTCOME_SALES',
+        status: 'PAUSED',
+        createdAt: new Date(),
+      });
+      repo.findActiveConnection.mockResolvedValue(activeConn);
+      repo.updateName.mockResolvedValue({ id: 'db-1', name: 'Renamed' });
+
+      const result = await service.update('client-1', 'db-1', {
+        name: 'Renamed',
+      });
+
+      expect(metaClient.updateCampaign).toHaveBeenCalledWith(
+        'meta-123',
+        'decrypted-token',
+        { name: 'Renamed' },
+      );
+      expect(repo.updateName).toHaveBeenCalledWith('db-1', 'Renamed');
+      expect(result.name).toBe('Renamed');
+    });
+
+    it('throws NotFoundException for a campaign outside the requesting client scope', async () => {
+      repo.findOneScoped.mockResolvedValue(null);
+
+      await expect(
+        service.update('client-1', 'someone-elses-campaign', {
+          name: 'Renamed',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(metaClient.updateCampaign).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('delete', () => {
+    it('deletes on Meta then locally, for a campaign owned by the requesting client', async () => {
+      repo.findOneScoped.mockResolvedValue({
+        id: 'db-1',
+        metaCampaignId: 'meta-123',
+        name: 'Sale',
+        objective: 'OUTCOME_SALES',
+        status: 'PAUSED',
+        createdAt: new Date(),
+      });
+      repo.findActiveConnection.mockResolvedValue(activeConn);
+
+      await service.delete('client-1', 'db-1');
+
+      expect(metaClient.deleteObject).toHaveBeenCalledWith(
+        'meta-123',
+        'decrypted-token',
+      );
+      expect(repo.delete).toHaveBeenCalledWith('db-1');
+    });
+
+    it('throws NotFoundException for a campaign outside the requesting client scope', async () => {
+      repo.findOneScoped.mockResolvedValue(null);
+
+      await expect(
+        service.delete('client-1', 'someone-elses-campaign'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(metaClient.deleteObject).not.toHaveBeenCalled();
     });
   });
 });

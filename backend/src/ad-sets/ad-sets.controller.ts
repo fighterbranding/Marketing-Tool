@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -49,5 +50,24 @@ export class AdSetsController {
       id,
       dto.status,
     );
+  }
+
+  @Patch(':id')
+  update(
+    @Request() req: { clientId: string },
+    @Param('campaignId') campaignId: string,
+    @Param('id') id: string,
+    @Body() dto: CreateAdSetDto,
+  ) {
+    return this.adSetsService.update(req.clientId, campaignId, id, dto);
+  }
+
+  @Delete(':id')
+  delete(
+    @Request() req: { clientId: string },
+    @Param('campaignId') campaignId: string,
+    @Param('id') id: string,
+  ) {
+    return this.adSetsService.delete(req.clientId, campaignId, id);
   }
 }

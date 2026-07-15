@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -17,6 +18,7 @@ import { ClientScopeGuard } from '../common/guards/client-scope.guard';
 import { AdsService } from './ads.service';
 import { CreateAdDto } from './dto/create-ad.dto';
 import { UpdateAdStatusDto } from './dto/update-ad-status.dto';
+import { UpdateAdDto } from './dto/update-ad.dto';
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
@@ -72,5 +74,26 @@ export class AdsController {
       id,
       dto.status,
     );
+  }
+
+  @Patch(':id')
+  update(
+    @Request() req: { clientId: string },
+    @Param('campaignId') campaignId: string,
+    @Param('adSetId') adSetId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateAdDto,
+  ) {
+    return this.adsService.update(req.clientId, campaignId, adSetId, id, dto);
+  }
+
+  @Delete(':id')
+  delete(
+    @Request() req: { clientId: string },
+    @Param('campaignId') campaignId: string,
+    @Param('adSetId') adSetId: string,
+    @Param('id') id: string,
+  ) {
+    return this.adsService.delete(req.clientId, campaignId, adSetId, id);
   }
 }

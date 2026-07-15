@@ -75,6 +75,53 @@ export class AdSetsService {
     return this.repo.updateStatus(id, status);
   }
 
+  async update(
+    clientId: string,
+    campaignId: string,
+    id: string,
+    dto: CreateAdSetDto,
+  ): Promise<AdSetRecord> {
+    await this.requireCampaign(clientId, campaignId);
+
+    const adSet = await this.repo.findOneScoped(campaignId, id);
+    if (!adSet) throw new NotFoundException('Ad set not found');
+
+    const conn = await this.requireActiveConnection(clientId);
+    const token = this.decrypt(conn);
+
+    await this.metaClient.updateAdSet(adSet.metaAdSetId, token, {
+      name: dto.name,
+      dailyBudgetCents: dto.dailyBudgetCents,
+      optimizationGoal: dto.optimizationGoal,
+      targeting: dto.targeting,
+    });
+
+    return this.repo.updateFields(
+      id,
+      dto.name,
+      dto.dailyBudgetCents,
+      dto.optimizationGoal,
+      dto.targeting,
+    );
+  }
+
+  async delete(
+    clientId: string,
+    campaignId: string,
+    id: string,
+  ): Promise<void> {
+    await this.requireCampaign(clientId, campaignId);
+
+    const adSet = await this.repo.findOneScoped(campaignId, id);
+    if (!adSet) throw new NotFoundException('Ad set not found');
+
+    const conn = await this.requireActiveConnection(clientId);
+    const token = this.decrypt(conn);
+
+    await this.metaClient.deleteObject(adSet.metaAdSetId, token);
+    await this.repo.delete(id);
+  }
+
   async searchTargeting(
     clientId: string,
     query: string,

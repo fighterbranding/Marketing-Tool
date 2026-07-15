@@ -95,4 +95,28 @@ export class AdSetsRepository {
     });
     return toAdSetRecord(updated);
   }
+
+  async updateFields(
+    id: string,
+    name: string,
+    dailyBudgetCents: number,
+    optimizationGoal: string,
+    targeting: TargetingSpec,
+  ): Promise<AdSetRecord> {
+    const updated = await this.prisma.db.adSet.update({
+      where: { id },
+      data: {
+        name,
+        dailyBudgetCents,
+        optimizationGoal,
+        targeting: targeting as unknown as Prisma.InputJsonValue,
+      },
+      select: AD_SET_SELECT,
+    });
+    return toAdSetRecord(updated);
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.prisma.db.adSet.delete({ where: { id } });
+  }
 }

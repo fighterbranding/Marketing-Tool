@@ -15,6 +15,7 @@ describe('AdSetsRepository', () => {
       findMany: jest.Mock;
       findFirst: jest.Mock;
       update: jest.Mock;
+      delete: jest.Mock;
     };
   };
 
@@ -33,6 +34,7 @@ describe('AdSetsRepository', () => {
         findMany: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
+        delete: jest.fn(),
       },
     };
 
@@ -127,5 +129,49 @@ describe('AdSetsRepository', () => {
       }),
     );
     expect(result.status).toBe('ACTIVE');
+  });
+
+  it('updateFields updates name, budget, optimization goal, and targeting', async () => {
+    prismaDb.adSet.update.mockResolvedValue({
+      id: 'adset-1',
+      metaAdSetId: 'meta-1',
+      name: 'Renamed',
+      dailyBudgetCents: 4000,
+      optimizationGoal: 'REACH',
+      targeting,
+      status: 'PAUSED',
+      createdAt: new Date(),
+    });
+
+    const result = await repo.updateFields(
+      'adset-1',
+      'Renamed',
+      4000,
+      'REACH',
+      targeting,
+    );
+
+    expect(prismaDb.adSet.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'adset-1' },
+        data: {
+          name: 'Renamed',
+          dailyBudgetCents: 4000,
+          optimizationGoal: 'REACH',
+          targeting,
+        },
+      }),
+    );
+    expect(result.name).toBe('Renamed');
+  });
+
+  it('delete removes the ad set by id', async () => {
+    prismaDb.adSet.delete.mockResolvedValue({ id: 'adset-1' });
+
+    await repo.delete('adset-1');
+
+    expect(prismaDb.adSet.delete).toHaveBeenCalledWith({
+      where: { id: 'adset-1' },
+    });
   });
 });

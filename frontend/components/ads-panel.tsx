@@ -176,8 +176,10 @@ function AdRow({
   adSetId: string;
   ad: Ad;
 }) {
-  const { updateStatus } = useAds(campaignId, adSetId);
+  const { updateStatus, update, remove } = useAds(campaignId, adSetId);
   const [error, setError] = useState('');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(ad.name);
   const nextStatus = ad.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
 
   async function handleToggle() {
@@ -189,11 +191,59 @@ function AdRow({
     }
   }
 
+  async function handleSaveName() {
+    setError('');
+    try {
+      await update.mutateAsync({ id: ad.id, name: nameDraft });
+      setIsEditingName(false);
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Could not rename ad'));
+    }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm(`Delete "${ad.name}"? This can't be undone.`)) return;
+    setError('');
+    try {
+      await remove.mutateAsync(ad.id);
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Could not delete ad'));
+    }
+  }
+
   return (
     <div className="py-2 border-b border-gray-100 last:border-0">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-900">{ad.name}</p>
+          {isEditingName ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                maxLength={100}
+                className="rounded-lg border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <button
+                onClick={handleSaveName}
+                disabled={update.isPending}
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  setNameDraft(ad.name);
+                  setIsEditingName(false);
+                }}
+                className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <p className="text-sm font-medium text-gray-900">{ad.name}</p>
+          )}
           <p className="text-xs text-gray-500">
             {ad.headline} · {ad.destinationUrl}
           </p>
@@ -206,6 +256,21 @@ function AdRow({
             className="text-sm font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
           >
             {ad.status === 'ACTIVE' ? 'Pause' : 'Resume'}
+          </button>
+          {!isEditingName && (
+            <button
+              onClick={() => setIsEditingName(true)}
+              className="text-sm font-medium text-gray-500 hover:text-gray-700"
+            >
+              Edit
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            disabled={remove.isPending}
+            className="text-sm font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
+          >
+            Delete
           </button>
         </div>
       </div>
