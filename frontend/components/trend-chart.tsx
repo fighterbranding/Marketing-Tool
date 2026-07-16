@@ -22,6 +22,7 @@ interface TrendChartProps {
   data: DailyPoint[];
   metric: Metric;
   onMetricChange: (metric: Metric) => void;
+  currency: string;
 }
 
 function formatDay(day: string): string {
@@ -29,12 +30,18 @@ function formatDay(day: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function formatValue(metric: Metric, value: number): string {
-  if (metric === 'spend') return `$${value.toLocaleString()}`;
+function formatValue(metric: Metric, value: number, currency: string): string {
+  if (metric === 'spend') {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value);
+  }
   return value.toLocaleString();
 }
 
-export function TrendChart({ data, metric, onMetricChange }: TrendChartProps) {
+export function TrendChart({ data, metric, onMetricChange, currency }: TrendChartProps) {
   const chartData = data.map((d) => ({
     ...d,
     day: formatDay(d.day),
@@ -75,12 +82,12 @@ export function TrendChart({ data, metric, onMetricChange }: TrendChartProps) {
             tick={{ fontSize: 11, fill: '#9ca3af' }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(v: number) => formatValue(metric, v)}
+            tickFormatter={(v: number) => formatValue(metric, v, currency)}
           />
           <Tooltip
             formatter={(value) => {
               if (typeof value === 'number') {
-                return [formatValue(metric, value), metric];
+                return [formatValue(metric, value, currency), metric];
               }
               return [String(value), metric];
             }}

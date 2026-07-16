@@ -560,27 +560,27 @@ describe('MetaClientService', () => {
   });
 
   describe('verifyAdAccountAccess', () => {
-    it('returns true when the account is reachable with this token', async () => {
-      mockedGet.mockResolvedValue({ data: { id: 'act_123' } });
+    it('returns hasAccess and currency when the account is reachable with this token', async () => {
+      mockedGet.mockResolvedValue({ data: { id: 'act_123', currency: 'EUR' } });
 
       const result = await service.verifyAdAccountAccess('123', 'token-1');
 
-      expect(result).toBe(true);
+      expect(result).toEqual({ hasAccess: true, currency: 'EUR' });
       expect(mockedGet).toHaveBeenCalledWith(
         'https://graph.facebook.com/v21.0/act_123',
         {
           headers: { Authorization: 'Bearer token-1' },
-          params: { fields: 'id' },
+          params: { fields: 'id,currency' },
         },
       );
     });
 
-    it('returns false without throwing when the call fails', async () => {
+    it('returns hasAccess: false and no currency without throwing when the call fails', async () => {
       mockedGet.mockRejectedValue(new Error('403 forbidden'));
 
       const result = await service.verifyAdAccountAccess('123', 'token-1');
 
-      expect(result).toBe(false);
+      expect(result).toEqual({ hasAccess: false, currency: null });
     });
   });
 });

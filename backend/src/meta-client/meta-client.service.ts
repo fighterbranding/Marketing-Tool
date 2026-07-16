@@ -544,20 +544,26 @@ export class MetaClientService {
 
   // Confirms the token actually has access to this specific ad account
   // before we save it as the client's selection — avoids a wall of opaque
-  // permission errors on every subsequent campaign/insights call. See
+  // permission errors on every subsequent campaign/insights call. Also
+  // fetches currency here (rather than a separate call) since spend/cpm/cpc
+  // come back in the account's own currency, not normalized to USD, and the
+  // dashboard needs to know which one to format with. See
   // docs/03-meta-api/business-manager-api.md section 3.
   async verifyAdAccountAccess(
     adAccountId: string,
     token: string,
-  ): Promise<boolean> {
+  ): Promise<{ hasAccess: boolean; currency: string | null }> {
     try {
-      await axios.get(`${GRAPH_API_BASE}/act_${adAccountId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { fields: 'id' },
-      });
-      return true;
+      const res = await axios.get<{ currency: string }>(
+        `${GRAPH_API_BASE}/act_${adAccountId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { fields: 'id,currency' },
+        },
+      );
+      return { hasAccess: true, currency: res.data.currency };
     } catch {
-      return false;
+      return { hasAccess: false, currency: null };
     }
   }
 

@@ -28,6 +28,7 @@ describe('AdAccountsService', () => {
   const activeConn = {
     id: 'conn-1',
     adAccountId: null,
+    adAccountCurrency: null,
     businessId: null,
     encryptedToken: 'enc',
     encryptionIv: 'iv',
@@ -94,23 +95,31 @@ describe('AdAccountsService', () => {
   });
 
   describe('getCurrentSelection', () => {
-    it('returns the connection businessId/adAccountId', async () => {
+    it('returns the connection businessId/adAccountId/currency', async () => {
       repo.findActiveConnection.mockResolvedValue({
         ...activeConn,
         businessId: 'biz_1',
         adAccountId: '123',
+        adAccountCurrency: 'EUR',
       });
 
       const result = await service.getCurrentSelection('client-1');
 
-      expect(result).toEqual({ businessId: 'biz_1', adAccountId: '123' });
+      expect(result).toEqual({
+        businessId: 'biz_1',
+        adAccountId: '123',
+        currency: 'EUR',
+      });
     });
   });
 
   describe('select', () => {
-    it('verifies access then persists the selection', async () => {
+    it('verifies access then persists the selection and currency', async () => {
       repo.findActiveConnection.mockResolvedValue(activeConn);
-      metaClient.verifyAdAccountAccess.mockResolvedValue(true);
+      metaClient.verifyAdAccountAccess.mockResolvedValue({
+        hasAccess: true,
+        currency: 'EUR',
+      });
 
       await service.select('client-1', 'biz_1', '123');
 
@@ -122,12 +131,16 @@ describe('AdAccountsService', () => {
         'conn-1',
         'biz_1',
         '123',
+        'EUR',
       );
     });
 
     it('rejects without persisting when the connection cannot access the ad account', async () => {
       repo.findActiveConnection.mockResolvedValue(activeConn);
-      metaClient.verifyAdAccountAccess.mockResolvedValue(false);
+      metaClient.verifyAdAccountAccess.mockResolvedValue({
+        hasAccess: false,
+        currency: null,
+      });
 
       await expect(
         service.select('client-1', 'biz_1', '123'),

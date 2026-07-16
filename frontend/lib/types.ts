@@ -121,4 +121,5 @@ export interface AdAccount {
 export interface CurrentAdAccountSelection {
   businessId: string | null;
   adAccountId: string | null;
+  currency: string | null;
 }

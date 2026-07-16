@@ -40,14 +40,18 @@ describe('AdAccountsRepository', () => {
     expect(result).toEqual({ id: 'conn-1' });
   });
 
-  it('selectAdAccount updates the connection with the chosen business and ad account', async () => {
+  it('selectAdAccount updates the connection with the chosen business, ad account, and currency', async () => {
     prismaDb.metaConnection.update.mockResolvedValue({ id: 'conn-1' });
 
-    await repo.selectAdAccount('conn-1', 'biz_1', '123');
+    await repo.selectAdAccount('conn-1', 'biz_1', '123', 'EUR');
 
     expect(prismaDb.metaConnection.update).toHaveBeenCalledWith({
       where: { id: 'conn-1' },
-      data: { businessId: 'biz_1', adAccountId: '123' },
+      data: {
+        businessId: 'biz_1',
+        adAccountId: '123',
+        adAccountCurrency: 'EUR',
+      },
     });
   });
 });

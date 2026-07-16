@@ -2,6 +2,7 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useInsights } from '@/lib/hooks/use-insights';
+import { useCurrentAdAccount } from '@/lib/hooks/use-ad-accounts';
 import { KpiCard } from '@/components/kpi-card';
 import { TrendChart } from '@/components/trend-chart';
 import { DashboardSkeleton } from '@/components/dashboard-skeleton';
@@ -10,17 +11,27 @@ import type { InsightsSummary } from '@/lib/types';
 
 type Metric = 'spend' | 'clicks' | 'impressions';
 
-const KPI_CONFIG: {
+function formatSpend(value: number, currency: string): string {
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function buildKpiConfig(currency: string): {
   key: keyof InsightsSummary;
   label: string;
   accent: string;
   format: (v: number) => string;
-}[] = [
-  { key: 'spend', label: 'Spend', accent: '#6366f1', format: (v) => `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
-  { key: 'impressions', label: 'Impressions', accent: '#818cf8', format: (v) => v.toLocaleString() },
-  { key: 'clicks', label: 'Clicks', accent: '#a5b4fc', format: (v) => v.toLocaleString() },
-  { key: 'conversions', label: 'Conversions', accent: '#c4b5fd', format: (v) => v.toLocaleString() },
-];
+}[] {
+  return [
+    { key: 'spend', label: 'Spend', accent: '#6366f1', format: (v) => formatSpend(v, currency) },
+    { key: 'impressions', label: 'Impressions', accent: '#818cf8', format: (v) => v.toLocaleString() },
+    { key: 'clicks', label: 'Clicks', accent: '#a5b4fc', format: (v) => v.toLocaleString() },
+    { key: 'conversions', label: 'Conversions', accent: '#c4b5fd', format: (v) => v.toLocaleString() },
+  ];
+}
 
 function getDefaultRange(): { from: string; to: string } {
   const to = new Date();
@@ -56,6 +67,8 @@ export function DashboardContent() {
   const to = rawTo ?? getDefaultRange().to;
 
   const { isLoading, isError, data, refetch } = useInsights(from, to);
+  const { data: adAccount } = useCurrentAdAccount();
+  const currency = adAccount?.currency ?? 'USD';
 
   if (isLoading) return <DashboardSkeleton />;
 
@@ -80,7 +93,7 @@ export function DashboardContent() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {KPI_CONFIG.map((kpi) => (
+        {buildKpiConfig(currency).map((kpi) => (
           <KpiCard
             key={kpi.key}
             label={kpi.label}
@@ -94,6 +107,7 @@ export function DashboardContent() {
         data={data.current.daily}
         metric={metric}
         onMetricChange={setMetric}
+        currency={currency}
       />
     </div>
   );

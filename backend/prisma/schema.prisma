@@ -33,22 +33,23 @@ enum Role {
 }
 
 model MetaConnection {
-  id             String           @id @default(uuid())
-  client         Client           @relation(fields: [clientId], references: [id])
-  clientId       String
-  connectionType ConnectionType
-  encryptedToken String
-  encryptionIv   String
-  encryptionTag  String
-  adAccountId    String?
-  businessId     String?
-  scopes         String[]
-  status         ConnectionStatus @default(ACTIVE)
-  expiresAt      DateTime?
-  lastSyncedAt   DateTime?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  assets         MetaAsset[]
+  id                String           @id @default(uuid())
+  client            Client           @relation(fields: [clientId], references: [id])
+  clientId          String
+  connectionType    ConnectionType
+  encryptedToken    String
+  encryptionIv      String
+  encryptionTag     String
+  adAccountId       String?
+  adAccountCurrency String?
+  businessId        String?
+  scopes            String[]
+  status            ConnectionStatus @default(ACTIVE)
+  expiresAt         DateTime?
+  lastSyncedAt      DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  assets            MetaAsset[]
 
   @@index([clientId])
 }

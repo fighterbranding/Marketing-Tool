@@ -13,6 +13,7 @@ import { TokenEncryptionService } from '../auth/token-encryption.service';
 export interface CurrentSelection {
   businessId: string | null;
   adAccountId: string | null;
+  currency: string | null;
 }
 
 @Injectable()
@@ -40,7 +41,11 @@ export class AdAccountsService {
 
   async getCurrentSelection(clientId: string): Promise<CurrentSelection> {
     const conn = await this.requireConnection(clientId);
-    return { businessId: conn.businessId, adAccountId: conn.adAccountId };
+    return {
+      businessId: conn.businessId,
+      adAccountId: conn.adAccountId,
+      currency: conn.adAccountCurrency,
+    };
   }
 
   async select(
@@ -51,7 +56,7 @@ export class AdAccountsService {
     const conn = await this.requireConnection(clientId);
     const token = this.decrypt(conn);
 
-    const hasAccess = await this.metaClient.verifyAdAccountAccess(
+    const { hasAccess, currency } = await this.metaClient.verifyAdAccountAccess(
       adAccountId,
       token,
     );
@@ -61,7 +66,7 @@ export class AdAccountsService {
       );
     }
 
-    await this.repo.selectAdAccount(conn.id, businessId, adAccountId);
+    await this.repo.selectAdAccount(conn.id, businessId, adAccountId, currency);
   }
 
   private async requireConnection(clientId: string): Promise<ActiveConnection> {

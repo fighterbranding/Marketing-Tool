@@ -17,13 +17,17 @@ async function fetchAdAccounts(businessId: string): Promise<AdAccount[]> {
   return data;
 }
 
-export function useAdAccounts() {
-  const queryClient = useQueryClient();
-
-  const current = useQuery({
+export function useCurrentAdAccount() {
+  return useQuery({
     queryKey: ['ad-accounts', 'current'],
     queryFn: fetchCurrentSelection,
   });
+}
+
+export function useAdAccounts() {
+  const queryClient = useQueryClient();
+
+  const current = useCurrentAdAccount();
 
   const businesses = useQuery({
     queryKey: ['ad-accounts', 'businesses'],

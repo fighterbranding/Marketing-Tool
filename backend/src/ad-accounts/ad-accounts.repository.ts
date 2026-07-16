@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export interface ActiveConnection {
   id: string;
   adAccountId: string | null;
+  adAccountCurrency: string | null;
   businessId: string | null;
   encryptedToken: string;
   encryptionIv: string;
@@ -22,6 +23,7 @@ export class AdAccountsRepository {
       select: {
         id: true,
         adAccountId: true,
+        adAccountCurrency: true,
         businessId: true,
         encryptedToken: true,
         encryptionIv: true,
@@ -34,10 +36,11 @@ export class AdAccountsRepository {
     connectionId: string,
     businessId: string,
     adAccountId: string,
+    currency: string | null,
   ): Promise<void> {
     await this.prisma.db.metaConnection.update({
       where: { id: connectionId },
-      data: { businessId, adAccountId },
+      data: { businessId, adAccountId, adAccountCurrency: currency },
     });
   }
 }
