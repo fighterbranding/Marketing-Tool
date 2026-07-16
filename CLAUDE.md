@@ -37,6 +37,7 @@ See `docs/BLUEPRINT.md` for the full plan. Short version:
 - Tests required for all services before moving to the next phase
 
 ## Important docs
-- `docs/02-backend/auth-service.md` — start here, everything depends on auth
+- `docs/PROJECT_STATUS.md` — **read this first** — current phase progress, known gaps, and the next recommended tasks. Keep it updated as work happens, especially across tools/sessions.
+- `docs/02-backend/auth-service.md` — everything depends on auth
 - `docs/SKILLS.md` — libraries to use at each layer
 - `docs/03-meta-api/` — Meta API integration specs per surface

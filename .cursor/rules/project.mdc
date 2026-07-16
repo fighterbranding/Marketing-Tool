@@ -1,0 +1,32 @@
+---
+description: Marketing Tool conventions and current status — read before any work
+alwaysApply: true
+---
+
+Before doing anything, read these two files in full:
+
+1. `CLAUDE.md` (repo root) — stack, repo structure, and coding conventions.
+2. `docs/PROJECT_STATUS.md` — current phase progress, known gaps, and the
+   next recommended tasks. This is the source of truth for what's done and
+   what's next; don't re-derive it from guesswork.
+
+Key rules from `CLAUDE.md`, restated here so they apply even if the file
+above isn't picked up for some reason:
+
+- Backend modules follow controller → service → repository (NestJS).
+- DTOs are validated with `class-validator` + `class-transformer`.
+- All Meta Graph/Marketing API calls go through the shared
+  `MetaClientService` wrapper (`backend/src/meta-client/`) — never call
+  `axios`/`fetch` against `graph.facebook.com` directly from anywhere else.
+- Tests are required for services before moving on. Look at an existing
+  `*.spec.ts` in the module you're touching for the mocking pattern already
+  in use — don't invent a new one.
+- Never commit `.env` or real credentials. `.env.example` stays blank.
+- Don't run `eslint --fix` (or any formatter) repo-wide — scope it to the
+  files you actually touched, or fix formatting by hand. Pre-existing
+  formatting debt in a file you're editing is not yours to fix unless asked.
+
+When you finish a session: update `docs/PROJECT_STATUS.md` — check off
+finished tasks, add anything new you found under "Known gaps," and append a
+line to "Session log" with the date and current commit hash so the next
+session (yours or Claude Code's) knows where things stand.
