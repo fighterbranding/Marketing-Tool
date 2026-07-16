@@ -103,11 +103,12 @@ credentials — currently empty).
 Append a line each time a work session (Claude or otherwise) ends, so the
 next session — whichever tool runs it — knows where things stand.
 
-- **2026-07-16 (Claude Code)** — HEAD at `3cecc3a` plus an uncommitted diff on
-  top (not yet committed — ask before committing): `/auth/meta/status`
-  endpoint, OAuth connect/callback flow fixed (ticket + CSRF state), real
+- **2026-07-16 (Claude Code)** — HEAD at `f7a383a`, all committed (3
+  commits: `a9b8276`, `b15a57e`, `f7a383a`). `/auth/meta/status` endpoint,
+  OAuth connect/callback flow fixed (ticket + CSRF state), real
   `getInsights()` wired up (with the token-decrypt bug fix in
   `SyncProcessor`), Webhooks module built (Phase 5 complete), plus a
   multi-agent review of all of the above with 5 bugs found and fixed. This
-  file created in response to a request for a durable way to keep working via
-  another tool during Claude Code downtime.
+  file and `.cursor/rules/project.mdc` created in response to a request for a
+  durable way to keep working via another tool during Claude Code downtime.
+  Not pushed to `origin` — do that only if asked.
