@@ -53,7 +53,7 @@ whenever a session (yours or Claude's) ends.
 Roughly in priority order:
 
 - [ ] **Meta App credentials missing** — `backend/.env` has `META_APP_ID=""` / `META_APP_SECRET=""`. Nothing below can be verified against real Meta data until this is filled in. See `docs/BLUEPRINT.md` Phase 0 for setup steps.
-- [ ] **Currency hardcoded to `$`** — `frontend/components/trend-chart.tsx:33` always prefixes spend with `$`, but Meta returns `spend`/`cpm`/`cpc` in the ad account's own currency (confirmed against live Meta docs). A non-USD client's dashboard would show the right numbers with the wrong symbol. Pre-existing (Phase 3), not from this session.
+- [x] ~~Currency hardcoded to `$`~~ — fixed 2026-07-17. `MetaConnection.adAccountCurrency` is now persisted at ad-account-selection time (`verifyAdAccountAccess` fetches `currency` alongside the access check), exposed via `/ad-accounts/current`, and used by `KpiCard`/`TrendChart` via `Intl.NumberFormat`. Verified live in a browser with a seeded EUR account (`€1,234` rendered correctly on both the KPI card and chart axis).
 - [ ] **Token decryption duplicated 3x** — `SyncProcessor`, `AdAccountsService`, and `PagesService` each inline `encryption.decrypt(conn.encryptedToken, conn.encryptionIv, conn.encryptionTag)`. This exact duplication already caused one real bug this session (`SyncProcessor` was passing the *encrypted* token straight to Meta). Worth centralizing into a single "get live token for connection" helper — touches 3 already-tested modules, so do it carefully with full test re-runs.
 - [ ] **`getInsights()` conversions is a simplification** — sums all Meta `actions` except a denylist of known engagement types (link clicks, post engagement, etc.). Correct in that it no longer overcounts wildly, but doesn't map per-objective conversion definitions (e.g. distinguishing a `lead` campaign's real conversion event from a `sales` campaign's). Revisit once real campaigns with real objectives exist to test against.
 - [ ] **Webhooks processor just logs events** — `backend/src/webhooks/webhooks.processor.ts` intentionally has no per-field business logic yet, because no fields are subscribed in the Meta App Dashboard yet. Once you pick which fields to subscribe to (only subscribe to what you'll act on, per `docs/02-backend/webhooks.md`), add handling here.
@@ -61,6 +61,10 @@ Roughly in priority order:
 - [ ] **No System User token flow** — deferred earlier in favor of user-OAuth + ad account selection. Revisit if/when this needs to run unattended per-client without a human's OAuth session.
 - [ ] **Local Postgres/Redis are manually-started processes**, not persistent services (no launchd unit). Will need manual restart after a reboot. See "Local dev environment" below for exact commands.
 - [ ] **Phase 6 (Reporting & export) unscoped** — needs your input before it can be built: which metrics, PDF vs CSV, on-demand vs scheduled email.
+- [ ] **`campaign_metrics` hypertable isn't tracked by Prisma** — it's created via a one-off `psql -f backend/prisma/timescale.sql`, not `prisma db push`/migrations, because it's a raw TimescaleDB hypertable outside Prisma's schema. Found this session: the table was missing entirely (Postgres data dir had been reset since it was first created) and had to be manually reapplied. If `/dashboard` ever shows "data is syncing" indefinitely despite an active connection, check `\dt` in `marketing_tool` for `campaign_metrics` first — re-run the command below if it's missing.
+  ```bash
+  PGPASSWORD=marketing_dev ~/dev-services/pg16/bin/psql -h localhost -U marketing -d marketing_tool -f backend/prisma/timescale.sql
+  ```
 
 ---
 
@@ -68,9 +72,8 @@ Roughly in priority order:
 
 1. Meta App setup (Phase 0 steps in `docs/BLUEPRINT.md`) — unblocks everything else being verified for real.
 2. Once connected: walk the full OAuth flow, then verify every write path (campaign/ad set/ad create-edit-delete, Pages, ad account selection) against real data — they're unit-tested against mocked Meta responses but never driven end-to-end against the real Graph API.
-3. Fix currency formatting (`trend-chart.tsx`) — quick, self-contained, no Meta credentials needed to build (though best verified with a non-USD test account).
-4. Centralize token decryption (see "Known gaps") — do this with care, re-run all three modules' test suites.
-5. Scope Phase 6 with your input.
+3. Centralize token decryption (see "Known gaps") — do this with care, re-run all three modules' test suites.
+4. Scope Phase 6 with your input.
 
 ---
 
@@ -112,3 +115,9 @@ next session — whichever tool runs it — knows where things stand.
   file and `.cursor/rules/project.mdc` created in response to a request for a
   durable way to keep working via another tool during Claude Code downtime.
   Not pushed to `origin` — do that only if asked.
+- **2026-07-17 (Claude Code)** — Fixed the hardcoded `$` currency formatting
+  gap (new `MetaConnection.adAccountCurrency` column, verified live in a
+  browser). Also discovered and fixed `campaign_metrics` missing entirely
+  from the local Postgres instance (see "Known gaps" — it's not
+  Prisma-tracked) while seeding test data for that verification. Not yet
+  committed — pending confirmation.
