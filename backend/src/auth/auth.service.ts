@@ -1,11 +1,19 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { JwtService } from '@nestjs/jwt';
+import type { Cache } from 'cache-manager';
 import axios from 'axios';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokenEncryptionService } from './token-encryption.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+
+const OAUTH_STATE_PREFIX = 'meta-oauth-state:';
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+const CONNECT_TICKET_PREFIX = 'meta-connect-ticket:';
+const CONNECT_TICKET_TTL_MS = 60 * 1000;
 
 @Injectable()
 export class AuthService {
@@ -13,6 +21,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly encryption: TokenEncryptionService,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -37,7 +46,7 @@ export class AuthService {
     return { token: this.signJwt(user.id, user.clientId, user.role) };
   }
 
-  buildMetaOAuthUrl(): string {
+  buildMetaOAuthUrl(state: string): string {
     const scopes = [
       'ads_management',
       'ads_read',
@@ -53,7 +62,60 @@ export class AuthService {
     url.searchParams.set('redirect_uri', process.env.META_REDIRECT_URI!);
     url.searchParams.set('scope', scopes);
     url.searchParams.set('response_type', 'code');
+    url.searchParams.set('state', state);
     return url.toString();
+  }
+
+  // A short-lived, single-use ticket lets the browser reach GET
+  // /auth/meta/connect (a plain navigation, which can't carry an
+  // Authorization header) without ever putting the real session JWT in a
+  // URL — that would land in browser history and any access/proxy logs.
+  async createConnectTicket(clientId: string): Promise<string> {
+    const ticket = randomBytes(24).toString('hex');
+    await this.cache.set(
+      `${CONNECT_TICKET_PREFIX}${ticket}`,
+      clientId,
+      CONNECT_TICKET_TTL_MS,
+    );
+    return ticket;
+  }
+
+  async consumeConnectTicket(ticket: string): Promise<string | null> {
+    const key = `${CONNECT_TICKET_PREFIX}${ticket}`;
+    const clientId = await this.cache.get<string>(key);
+    if (!clientId) return null;
+    await this.cache.del(key);
+    return clientId;
+  }
+
+  async createOAuthState(clientId: string): Promise<string> {
+    const state = randomBytes(24).toString('hex');
+    await this.cache.set(
+      `${OAUTH_STATE_PREFIX}${state}`,
+      clientId,
+      OAUTH_STATE_TTL_MS,
+    );
+    return state;
+  }
+
+  async consumeOAuthState(state: string): Promise<string | null> {
+    const key = `${OAUTH_STATE_PREFIX}${state}`;
+    const clientId = await this.cache.get<string>(key);
+    if (!clientId) return null;
+    await this.cache.del(key);
+    return clientId;
+  }
+
+  async getMetaConnectionStatus(
+    clientId: string,
+  ): Promise<'ACTIVE' | 'NEEDS_RECONNECT' | 'NEVER_CONNECTED'> {
+    const conn = await this.prisma.db.metaConnection.findFirst({
+      where: { clientId },
+      orderBy: { createdAt: 'desc' },
+      select: { status: true },
+    });
+    if (!conn) return 'NEVER_CONNECTED';
+    return conn.status === 'ACTIVE' ? 'ACTIVE' : 'NEEDS_RECONNECT';
   }
 
   async handleMetaCallback(code: string, clientId: string) {

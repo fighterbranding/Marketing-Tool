@@ -19,21 +19,46 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
-  @Get('meta/connect')
+  @Post('meta/connect/ticket')
   @UseGuards(JwtAuthGuard)
-  connectMeta(@Res() res: Response) {
-    res.redirect(this.authService.buildMetaOAuthUrl());
+  async createConnectTicket(
+    @Req() req: Request & { user: { clientId: string } },
+  ) {
+    return {
+      ticket: await this.authService.createConnectTicket(req.user.clientId),
+    };
+  }
+
+  @Get('meta/connect')
+  async connectMeta(@Query('ticket') ticket: string, @Res() res: Response) {
+    try {
+      const clientId = await this.authService.consumeConnectTicket(ticket);
+      if (!clientId) throw new Error('Invalid or expired ticket');
+      const state = await this.authService.createOAuthState(clientId);
+      res.redirect(this.authService.buildMetaOAuthUrl(state));
+    } catch {
+      res.redirect(`${process.env.FRONTEND_URL}/login`);
+    }
+  }
+
+  @Get('meta/status')
+  @UseGuards(JwtAuthGuard)
+  async metaStatus(@Req() req: Request & { user: { clientId: string } }) {
+    return {
+      status: await this.authService.getMetaConnectionStatus(req.user.clientId),
+    };
   }
 
   @Get('meta/callback')
-  @UseGuards(JwtAuthGuard)
   async metaCallback(
     @Query('code') code: string,
-    @Req() req: Request & { user: { clientId: string } },
+    @Query('state') state: string,
     @Res() res: Response,
   ) {
     try {
-      await this.authService.handleMetaCallback(code, req.user.clientId);
+      const clientId = await this.authService.consumeOAuthState(state);
+      if (!clientId) throw new Error('Invalid or expired OAuth state');
+      await this.authService.handleMetaCallback(code, clientId);
       res.redirect(`${process.env.FRONTEND_URL}/connect-meta/success`);
     } catch {
       res.redirect(`${process.env.FRONTEND_URL}/connect-meta/error`);
