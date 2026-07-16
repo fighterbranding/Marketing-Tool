@@ -5,20 +5,18 @@ import { SyncScheduler } from './sync.scheduler';
 import { SyncController } from './sync.controller';
 import { MetaClientModule } from '../meta-client/meta-client.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
+import { AuthModule } from '../auth/auth.module';
+import { DEFAULT_QUEUE_JOB_OPTIONS } from '../common/queue-default-job-options';
 
 @Module({
   imports: [
     BullModule.registerQueue({
       name: 'meta-sync',
-      defaultJobOptions: {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5000 },
-        removeOnComplete: { age: 86400 },
-        removeOnFail: { age: 604800 },
-      },
+      defaultJobOptions: DEFAULT_QUEUE_JOB_OPTIONS,
     }),
     MetaClientModule,
     AnalyticsModule,
+    AuthModule,
   ],
   providers: [SyncProcessor, SyncScheduler],
   controllers: [SyncController],

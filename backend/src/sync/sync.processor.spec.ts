@@ -14,12 +14,17 @@ jest.mock('../analytics/analytics.repository', () => ({
   AnalyticsRepository: class MockAnalyticsRepository {},
 }));
 
+jest.mock('../auth/token-encryption.service', () => ({
+  TokenEncryptionService: class MockTokenEncryptionService {},
+}));
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { Job } from 'bullmq';
 import { SyncProcessor } from './sync.processor';
 import { MetaClientService } from '../meta-client/meta-client.service';
 import { AnalyticsRepository } from '../analytics/analytics.repository';
 import { PrismaService } from '../prisma/prisma.service';
+import { TokenEncryptionService } from '../auth/token-encryption.service';
 
 const makeJob = (data: { connectionId: string }) =>
   ({ data } as Job<{ connectionId: string }>);
@@ -28,6 +33,7 @@ describe('SyncProcessor', () => {
   let processor: SyncProcessor;
   let metaClient: { getInsights: jest.Mock };
   let analyticsRepo: { upsertMetrics: jest.Mock };
+  let encryption: { decrypt: jest.Mock };
   let prismaDb: {
     metaConnection: { findUnique: jest.Mock; update: jest.Mock };
   };
@@ -46,15 +52,20 @@ describe('SyncProcessor', () => {
         { provide: MetaClientService, useValue: { getInsights: jest.fn() } },
         { provide: AnalyticsRepository, useValue: { upsertMetrics: jest.fn() } },
         { provide: PrismaService, useValue: { db: prismaDb } },
+        {
+          provide: TokenEncryptionService,
+          useValue: { decrypt: jest.fn().mockReturnValue('decrypted-token') },
+        },
       ],
     }).compile();
 
     processor = module.get(SyncProcessor);
     metaClient = module.get(MetaClientService) as { getInsights: jest.Mock };
     analyticsRepo = module.get(AnalyticsRepository) as { upsertMetrics: jest.Mock };
+    encryption = module.get(TokenEncryptionService) as { decrypt: jest.Mock };
   });
 
-  it('calls getInsights and upsertMetrics for an active connection', async () => {
+  it('decrypts the token and calls getInsights and upsertMetrics for an active connection', async () => {
     prismaDb.metaConnection.findUnique.mockResolvedValue({
       id: 'conn-1',
       clientId: 'client-1',
@@ -80,13 +91,34 @@ describe('SyncProcessor', () => {
 
     await processor.process(makeJob({ connectionId: 'conn-1' }));
 
-    expect(metaClient.getInsights).toHaveBeenCalledWith('123', 'enc');
+    expect(encryption.decrypt).toHaveBeenCalledWith('enc', 'iv', 'tag');
+    expect(metaClient.getInsights).toHaveBeenCalledWith(
+      '123',
+      'decrypted-token',
+    );
     expect(analyticsRepo.upsertMetrics).toHaveBeenCalledWith(
       'client-1',
       'mock-001',
       expect.any(Date),
       expect.objectContaining({ impressions: 100, spend_cents: 500 }),
     );
+  });
+
+  it('skips the job when no ad account has been selected yet', async () => {
+    prismaDb.metaConnection.findUnique.mockResolvedValue({
+      id: 'conn-1',
+      clientId: 'client-1',
+      adAccountId: null,
+      status: 'ACTIVE',
+      encryptedToken: 'enc',
+      encryptionIv: 'iv',
+      encryptionTag: 'tag',
+    });
+
+    await expect(
+      processor.process(makeJob({ connectionId: 'conn-1' })),
+    ).resolves.toBeUndefined();
+    expect(metaClient.getInsights).not.toHaveBeenCalled();
   });
 
   it('marks connection NEEDS_RECONNECT on Meta error 190 without rethrowing', async () => {

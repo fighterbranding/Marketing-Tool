@@ -466,6 +466,99 @@ describe('MetaClientService', () => {
     });
   });
 
+  describe('getInsights', () => {
+    it('maps campaign insight rows, converting dollar/percentage strings into cents/fractions, and excludes non-conversion actions', async () => {
+      mockedGet.mockResolvedValue({
+        data: {
+          data: [
+            {
+              campaign_id: 'camp_1',
+              impressions: '1000',
+              reach: '800',
+              spend: '12.34',
+              clicks: '50',
+              actions: [
+                {
+                  action_type: 'offsite_conversion.fb_pixel_purchase',
+                  value: '3',
+                },
+                { action_type: 'link_click', value: '50' },
+                { action_type: 'post_engagement', value: '12' },
+              ],
+              ctr: '5.0',
+              cpm: '12.34',
+              cpc: '0.25',
+            },
+          ],
+        },
+      });
+
+      const result = await service.getInsights('act-1', 'token-1');
+
+      expect(result).toEqual([
+        {
+          campaignId: 'camp_1',
+          impressions: 1000,
+          reach: 800,
+          spend_cents: 1234,
+          clicks: 50,
+          conversions: 3,
+          ctr: 0.05,
+          cpm_cents: 1234,
+          cpc_cents: 25,
+        },
+      ]);
+      expect(mockedGet).toHaveBeenCalledWith(
+        'https://graph.facebook.com/v21.0/act_act-1/insights',
+        {
+          headers: { Authorization: 'Bearer token-1' },
+          params: {
+            level: 'campaign',
+            fields:
+              'campaign_id,impressions,reach,spend,clicks,actions,ctr,cpm,cpc',
+            date_preset: 'today',
+          },
+        },
+      );
+    });
+
+    it('defaults missing numeric fields to zero', async () => {
+      mockedGet.mockResolvedValue({
+        data: { data: [{ campaign_id: 'camp_1' }] },
+      });
+
+      const result = await service.getInsights('act-1', 'token-1');
+
+      expect(result).toEqual([
+        {
+          campaignId: 'camp_1',
+          impressions: 0,
+          reach: 0,
+          spend_cents: 0,
+          clicks: 0,
+          conversions: 0,
+          ctr: 0,
+          cpm_cents: 0,
+          cpc_cents: 0,
+        },
+      ]);
+    });
+
+    it('normalizes a Meta API error response into metaErrorCode', async () => {
+      mockedIsAxiosError.mockReturnValue(true);
+      mockedGet.mockRejectedValue({
+        message: 'Request failed with status code 190',
+        response: {
+          data: { error: { message: 'Token expired', code: 190 } },
+        },
+      });
+
+      await expect(
+        service.getInsights('act-1', 'token-1'),
+      ).rejects.toMatchObject({ message: 'Token expired', metaErrorCode: 190 });
+    });
+  });
+
   describe('verifyAdAccountAccess', () => {
     it('returns true when the account is reachable with this token', async () => {
       mockedGet.mockResolvedValue({ data: { id: 'act_123' } });

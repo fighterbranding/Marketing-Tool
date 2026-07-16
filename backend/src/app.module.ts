@@ -15,6 +15,7 @@ import { AdSetsModule } from './ad-sets/ad-sets.module';
 import { AdsModule } from './ads/ads.module';
 import { PagesModule } from './pages/pages.module';
 import { AdAccountsModule } from './ad-accounts/ad-accounts.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { AdAccountsModule } from './ad-accounts/ad-accounts.module';
     AdsModule,
     PagesModule,
     AdAccountsModule,
+    WebhooksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

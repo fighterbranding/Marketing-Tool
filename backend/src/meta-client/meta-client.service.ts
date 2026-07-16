@@ -4,6 +4,24 @@ import FormData from 'form-data';
 
 const GRAPH_API_BASE = 'https://graph.facebook.com/v21.0';
 
+// Meta's `actions` field mixes true conversions (purchases, leads, signups)
+// with top-of-funnel engagement that isn't a conversion by any objective's
+// definition. Excluding these avoids counting every link click as a
+// "conversion" — it's not a substitute for real per-objective mapping, but
+// summing everything unfiltered is unconditionally wrong.
+const NON_CONVERSION_ACTION_TYPES = new Set([
+  'link_click',
+  'post_engagement',
+  'page_engagement',
+  'post_reaction',
+  'comment',
+  'post',
+  'like',
+  'video_view',
+  'landing_page_view',
+  'photo_view',
+]);
+
 export interface InsightRow {
   campaignId: string;
   impressions: number;
@@ -143,23 +161,47 @@ const AD_ACCOUNT_STATUS_MAP: Record<number, AdAccountStatus> = {
 
 @Injectable()
 export class MetaClientService {
-  async getInsights(
-    _adAccountId: string,
-    _token: string,
-  ): Promise<InsightRow[]> {
-    return [
-      {
-        campaignId: 'mock-001',
-        impressions: 100,
-        reach: 80,
-        spend_cents: 500,
-        clicks: 5,
-        conversions: 1,
-        ctr: 0.05,
-        cpm_cents: 50,
-        cpc_cents: 100,
-      },
-    ];
+  async getInsights(adAccountId: string, token: string): Promise<InsightRow[]> {
+    try {
+      const res = await axios.get<{
+        data: {
+          campaign_id: string;
+          impressions?: string;
+          reach?: string;
+          spend?: string;
+          clicks?: string;
+          actions?: { action_type: string; value: string }[];
+          ctr?: string;
+          cpm?: string;
+          cpc?: string;
+        }[];
+      }>(`${GRAPH_API_BASE}/act_${adAccountId}/insights`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          level: 'campaign',
+          fields:
+            'campaign_id,impressions,reach,spend,clicks,actions,ctr,cpm,cpc',
+          date_preset: 'today',
+        },
+      });
+      return res.data.data.map((row) => ({
+        campaignId: row.campaign_id,
+        impressions: Number(row.impressions ?? 0),
+        reach: Number(row.reach ?? 0),
+        spend_cents: Math.round(Number(row.spend ?? 0) * 100),
+        clicks: Number(row.clicks ?? 0),
+        conversions: (row.actions ?? [])
+          .filter((a) => !NON_CONVERSION_ACTION_TYPES.has(a.action_type))
+          .reduce((sum, a) => sum + Number(a.value ?? 0), 0),
+        // Meta returns ctr/cpm/cpc as percentage/dollar strings; normalize
+        // ctr to a fraction and cpm/cpc to cents to match our stored units.
+        ctr: Number(row.ctr ?? 0) / 100,
+        cpm_cents: Math.round(Number(row.cpm ?? 0) * 100),
+        cpc_cents: Math.round(Number(row.cpc ?? 0) * 100),
+      }));
+    } catch (err) {
+      throw this.toMetaError(err);
+    }
   }
 
   async createCampaign(

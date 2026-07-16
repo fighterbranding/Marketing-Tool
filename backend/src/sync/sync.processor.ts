@@ -4,6 +4,7 @@ import { Job } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { MetaClientService } from '../meta-client/meta-client.service';
 import { AnalyticsRepository } from '../analytics/analytics.repository';
+import { TokenEncryptionService } from '../auth/token-encryption.service';
 
 export interface SyncJobData {
   connectionId: string;
@@ -16,6 +17,7 @@ export class SyncProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly metaClient: MetaClientService,
     private readonly analyticsRepo: AnalyticsRepository,
+    private readonly encryption: TokenEncryptionService,
   ) {
     super();
   }
@@ -34,12 +36,19 @@ export class SyncProcessor extends WorkerHost {
       },
     });
 
-    if (!conn || conn.status !== 'ACTIVE') return;
+    // No ad account selected yet means there's nothing to sync — skip
+    // rather than retry, since retrying can't fix a missing selection.
+    if (!conn || conn.status !== 'ACTIVE' || !conn.adAccountId) return;
 
     try {
-      const insights = await this.metaClient.getInsights(
-        conn.adAccountId ?? 'stub',
+      const token = this.encryption.decrypt(
         conn.encryptedToken,
+        conn.encryptionIv,
+        conn.encryptionTag,
+      );
+      const insights = await this.metaClient.getInsights(
+        conn.adAccountId,
+        token,
       );
 
       const today = new Date();
